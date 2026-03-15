@@ -8,8 +8,12 @@ interface Performer {
   name: string;
   role: string;
   score: number;
-  streak: string;
   avatar: string;
+  metrics: {
+    mous: number;
+    coldCalls: number;
+    followups: number;
+  };
 }
 
 interface MiniTeamData {
@@ -43,9 +47,9 @@ const teamDataMap: Record<string, TeamData> = {
         growth: 180,
         icon: "🚀",
         performers: [
-          { name: "Ariana Cole", role: "Deal Closer", score: 540, streak: "9 wins", avatar: "AC" },
-          { name: "Brian Kim", role: "Pipeline Builder", score: 470, streak: "7 wins", avatar: "BK" },
-          { name: "Nina Park", role: "Partner Lead", score: 410, streak: "5 wins", avatar: "NP" },
+          { name: "Ariana Cole", role: "Deal Closer", score: 540, avatar: "AC", metrics: { mous: 24, coldCalls: 45, followups: 12 } },
+          { name: "Brian Kim", role: "Pipeline Builder", score: 470, avatar: "BK", metrics: { mous: 18, coldCalls: 38, followups: 15 } },
+          { name: "Nina Park", role: "Partner Lead", score: 410, avatar: "NP", metrics: { mous: 22, coldCalls: 30, followups: 10 } },
         ],
       },
       {
@@ -55,9 +59,9 @@ const teamDataMap: Record<string, TeamData> = {
         growth: 140,
         icon: "🎯",
         performers: [
-          { name: "Marco Lee", role: "Outreach Lead", score: 500, streak: "8 wins", avatar: "ML" },
-          { name: "Sasha Ray", role: "Prospect Analyst", score: 390, streak: "6 wins", avatar: "SR" },
-          { name: "Dion Cruz", role: "Follow-up Owner", score: 350, streak: "4 wins", avatar: "DC" },
+          { name: "Marco Lee", role: "Outreach Lead", score: 500, avatar: "ML", metrics: { mous: 20, coldCalls: 42, followups: 14 } },
+          { name: "Sasha Ray", role: "Prospect Analyst", score: 390, avatar: "SR", metrics: { mous: 15, coldCalls: 35, followups: 18 } },
+          { name: "Dion Cruz", role: "Follow-up Owner", score: 350, avatar: "DC", metrics: { mous: 12, coldCalls: 28, followups: 20 } },
         ],
       },
     ],
@@ -77,9 +81,9 @@ const teamDataMap: Record<string, TeamData> = {
         growth: 165,
         icon: "🌐",
         performers: [
-          { name: "Layla Noor", role: "Exchange Liaison", score: 520, streak: "10 wins", avatar: "LN" },
-          { name: "Theo Grant", role: "Country Lead", score: 430, streak: "7 wins", avatar: "TG" },
-          { name: "Mina Sol", role: "Partnership Support", score: 330, streak: "5 wins", avatar: "MS" },
+          { name: "Layla Noor", role: "Exchange Liaison", score: 520, avatar: "LN", metrics: { mous: 21, coldCalls: 48, followups: 11 } },
+          { name: "Theo Grant", role: "Country Lead", score: 430, avatar: "TG", metrics: { mous: 17, coldCalls: 40, followups: 16 } },
+          { name: "Mina Sol", role: "Partnership Support", score: 330, avatar: "MS", metrics: { mous: 14, coldCalls: 32, followups: 19 } },
         ],
       },
       {
@@ -89,9 +93,9 @@ const teamDataMap: Record<string, TeamData> = {
         growth: 155,
         icon: "🔗",
         performers: [
-          { name: "Ethan Vale", role: "Network Builder", score: 480, streak: "8 wins", avatar: "EV" },
-          { name: "Ivy Chen", role: "Account Partner", score: 410, streak: "6 wins", avatar: "IC" },
-          { name: "Sara Moon", role: "Process Lead", score: 320, streak: "4 wins", avatar: "SM" },
+          { name: "Ethan Vale", role: "Network Builder", score: 480, avatar: "EV", metrics: { mous: 19, coldCalls: 44, followups: 13 } },
+          { name: "Ivy Chen", role: "Account Partner", score: 410, avatar: "IC", metrics: { mous: 16, coldCalls: 36, followups: 17 } },
+          { name: "Sara Moon", role: "Process Lead", score: 320, avatar: "SM", metrics: { mous: 13, coldCalls: 30, followups: 21 } },
         ],
       },
     ],
@@ -111,9 +115,9 @@ const teamDataMap: Record<string, TeamData> = {
         growth: 195,
         icon: "⚡",
         performers: [
-          { name: "Jade Brooks", role: "Conversion Lead", score: 560, streak: "11 wins", avatar: "JB" },
-          { name: "Noel Hart", role: "Ops Specialist", score: 450, streak: "7 wins", avatar: "NH" },
-          { name: "Kira Dean", role: "Matcher", score: 340, streak: "5 wins", avatar: "KD" },
+          { name: "Jade Brooks", role: "Conversion Lead", score: 560, avatar: "JB", metrics: { mous: 26, coldCalls: 50, followups: 9 } },
+          { name: "Noel Hart", role: "Ops Specialist", score: 450, avatar: "NH", metrics: { mous: 20, coldCalls: 42, followups: 14 } },
+          { name: "Kira Dean", role: "Matcher", score: 340, avatar: "KD", metrics: { mous: 15, coldCalls: 34, followups: 18 } },
         ],
       },
       {
@@ -123,9 +127,9 @@ const teamDataMap: Record<string, TeamData> = {
         growth: 130,
         icon: "💎",
         performers: [
-          { name: "Rico Barnes", role: "Workflow Lead", score: 430, streak: "7 wins", avatar: "RB" },
-          { name: "Tina Moss", role: "Follow-up Owner", score: 370, streak: "5 wins", avatar: "TM" },
-          { name: "Ava Quinn", role: "Data Tracker", score: 300, streak: "4 wins", avatar: "AQ" },
+          { name: "Rico Barnes", role: "Workflow Lead", score: 430, avatar: "RB", metrics: { mous: 18, coldCalls: 38, followups: 15 } },
+          { name: "Tina Moss", role: "Follow-up Owner", score: 370, avatar: "TM", metrics: { mous: 16, coldCalls: 35, followups: 17 } },
+          { name: "Ava Quinn", role: "Data Tracker", score: 300, avatar: "AQ", metrics: { mous: 12, coldCalls: 28, followups: 20 } },
         ],
       },
     ],
@@ -145,9 +149,9 @@ const teamDataMap: Record<string, TeamData> = {
         growth: 170,
         icon: "⭐",
         performers: [
-          { name: "Pia Logan", role: "Campaign Lead", score: 510, streak: "9 wins", avatar: "PL" },
-          { name: "Cody Wynn", role: "Content Strategist", score: 430, streak: "7 wins", avatar: "CW" },
-          { name: "Lena Ford", role: "Brand Owner", score: 350, streak: "5 wins", avatar: "LF" },
+          { name: "Pia Logan", role: "Campaign Lead", score: 510, avatar: "PL", metrics: { mous: 22, coldCalls: 46, followups: 12 } },
+          { name: "Cody Wynn", role: "Content Strategist", score: 430, avatar: "CW", metrics: { mous: 18, coldCalls: 39, followups: 15 } },
+          { name: "Lena Ford", role: "Brand Owner", score: 350, avatar: "LF", metrics: { mous: 14, coldCalls: 31, followups: 20 } },
         ],
       },
       {
@@ -157,9 +161,9 @@ const teamDataMap: Record<string, TeamData> = {
         growth: 145,
         icon: "🌊",
         performers: [
-          { name: "Mason Hale", role: "Media Planner", score: 460, streak: "8 wins", avatar: "MH" },
-          { name: "Ella Reed", role: "Audience Lead", score: 390, streak: "6 wins", avatar: "ER" },
-          { name: "Zane Ortiz", role: "Social Manager", score: 310, streak: "4 wins", avatar: "ZO" },
+          { name: "Mason Hale", role: "Media Planner", score: 460, avatar: "MH", metrics: { mous: 19, coldCalls: 43, followups: 14 } },
+          { name: "Ella Reed", role: "Audience Lead", score: 390, avatar: "ER", metrics: { mous: 16, coldCalls: 36, followups: 17 } },
+          { name: "Zane Ortiz", role: "Social Manager", score: 310, avatar: "ZO", metrics: { mous: 12, coldCalls: 29, followups: 22 } },
         ],
       },
     ],
@@ -170,13 +174,8 @@ const teamDataMap: Record<string, TeamData> = {
   },
 };
 
-const activityFeed = [
-  { event: "+40 points added for outreach completion", time: "2 hours ago", icon: "✅" },
-  { event: "Campaign support task submitted", time: "4 hours ago", icon: "📤" },
-  { event: "Weekly scores refreshed", time: "6 hours ago", icon: "🔄" },
-  { event: "Leaderboard updated", time: "8 hours ago", icon: "📋" },
-  { event: "Mini team moved into first place", time: "12 hours ago", icon: "🎉" },
-];
+const dynamicCharts = true; // Placeholder for logic control if needed
+
 
 const quickInsights = [
   { label: "Most Improved Team", value: "B2B Hunters", growth: "+12.4%" },
@@ -312,7 +311,20 @@ function PerformerModal({
                   <div className={`flex w-full max-w-28 flex-col items-center justify-center rounded-t-3xl bg-linear-to-b ${podiumColors[index]} ${podiumHeights[index]} px-3 py-4`}>
                     <span className="text-xs font-semibold uppercase tracking-[0.2em] opacity-80">{podiumLabels[index]}</span>
                     <span className="mt-2 text-2xl font-black">{performer.score}</span>
-                    <span className="mt-1 text-[11px] font-semibold opacity-80">points</span>
+                    <div className="mt-2 flex gap-1.5">
+                      <div className="flex flex-col items-center">
+                        <span className="text-[8px] font-bold opacity-60">M</span>
+                        <span className="text-[10px] font-black">{performer.metrics.mous}</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[8px] font-bold opacity-60">C</span>
+                        <span className="text-[10px] font-black">{performer.metrics.coldCalls}</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[8px] font-bold opacity-60">F</span>
+                        <span className="text-[10px] font-black">{performer.metrics.followups}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -334,7 +346,11 @@ function PerformerModal({
                   <div className="text-right">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Rank #{index + 1}</p>
                     <p className="mt-1 text-base font-bold text-white">{performer.score} pts</p>
-                    <p className="text-xs text-emerald-400">{performer.streak}</p>
+                    <div className="mt-2 flex justify-end gap-3 text-[10px] font-bold">
+                      <span className="text-blue-400">M: {performer.metrics.mous}</span>
+                      <span className="text-emerald-400">C: {performer.metrics.coldCalls}</span>
+                      <span className="text-amber-400">F: {performer.metrics.followups}</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -367,7 +383,6 @@ export default function TeamDashboard() {
         team: miniTeam.name,
         name: performer.name,
         role: performer.role,
-        streak: performer.streak,
         points: performer.score,
         growth: Math.round((performer.score / miniTeam.points) * miniTeam.growth),
       })),
@@ -379,32 +394,64 @@ export default function TeamDashboard() {
   const allPerformers = teamData.miniTeams.flatMap((mt) =>
     mt.performers.map((p) => ({ ...p, teamName: mt.name })),
   );
+
   const chartDefs = [
     {
-      title: "Points Scored",
+      id: "points",
+      title: "Individual Points",
       subtitle: "TOP PERFORMANCE RACE",
       unit: "pts",
       entries: allPerformers.map((p) => ({ label: p.name, sub: p.teamName, value: p.score })),
+      type: "bar",
     },
     {
-      title: "Growth Momentum",
-      subtitle: "MINI TEAM COMPARISON",
-      unit: "pts growth",
-      entries: teamData.miniTeams.map((mt) => ({ label: mt.name, sub: `Rank #${mt.rank}`, value: mt.growth })),
+      id: "activity",
+      title: "Member Activity Breakdown",
+      subtitle: "MOUs | COLD CALLS | FOLLOWUPS",
+      unit: "",
+      entries: allPerformers.map((p) => ({ 
+        label: p.name, 
+        sub: p.teamName, 
+        values: [p.metrics.mous, p.metrics.coldCalls, p.metrics.followups],
+        labels: ["MOUs", "Cold Calls", "Followups"]
+      })),
+      type: "stacked-bar",
     },
     {
-      title: "Performer Win Streaks",
-      subtitle: "STREAK LEADERBOARD",
-      unit: "wins",
-      entries: allPerformers.map((p) => ({ label: p.name, sub: p.teamName, value: parseInt(p.streak) })),
-    },
-    {
-      title: "Team Points Race",
-      subtitle: "MINI TEAM TOTALS",
-      unit: "pts",
-      entries: teamData.miniTeams.map((mt) => ({ label: mt.name, sub: mt.icon, value: mt.points })),
+      id: "growth",
+      title: "Team Growth Momentum",
+      subtitle: "SMOOTH PERFORMANCE TREND",
+      unit: "%",
+      series: teamData.miniTeams.map((mt, i) => ({
+        name: mt.name,
+        color: i === 0 ? "#60a5fa" : "#a855f7",
+        data: [10, 25, 15, 45, 30, mt.growth / 10 + 20, mt.growth / 5 + 10], // Mock "smooth" trend data
+      })),
+      categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      type: "smooth-line",
     },
   ];
+
+  // Helper for smooth SVG path (Cubic Bezier)
+  const getSmoothPath = (data: number[], width: number, height: number, max: number) => {
+    if (data.length < 2) return "";
+    const points = data.map((d, i) => ({
+      x: (i / (data.length - 1)) * width,
+      y: height - (d / max) * height,
+    }));
+
+    let path = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const curr = points[i];
+      const next = points[i + 1];
+      const cp1x = curr.x + (next.x - curr.x) / 2;
+      const cp1y = curr.y;
+      const cp2x = curr.x + (next.x - curr.x) / 2;
+      const cp2y = next.y;
+      path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${next.x} ${next.y}`;
+    }
+    return path;
+  };
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -479,10 +526,6 @@ export default function TeamDashboard() {
               <div>
                 <h3 className="text-xl font-bold text-white md:text-2xl">Top Performer Podium</h3>
                 <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">From {leaderTeam.name}</p>
-              </div>
-              <div className="rounded-xl border border-slate-700/70 bg-slate-900/70 px-4 py-3 text-right">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Total Ranked People</p>
-                <p className="mt-1 text-lg font-bold text-white">{leaderTeam.performers.length}</p>
               </div>
             </div>
 
@@ -572,52 +615,164 @@ export default function TeamDashboard() {
 
           <section>
             <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-white md:text-2xl">Performance Breakdowns</h3>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Hover bars for detail</p>
+              <h3 className="text-xl font-bold text-white md:text-2xl">Individual Points | Growth</h3>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Hover for detail</p>
             </div>
             <div className="grid gap-6 md:grid-cols-2">
               {chartDefs.map((chart, chartIdx) => {
-                const maxVal = Math.max(...chart.entries.map((e) => e.value));
+                const maxVal = Math.max(...((chart.entries as any[]) || []).map((e: any) => e.value || 0));
                 return (
-                  <div key={chart.title} className="rounded-3xl border border-slate-800/70 bg-slate-900/65 p-6 shadow-xl shadow-black/20">
+                  <div key={chart.id || chart.title} className="rounded-3xl border border-slate-800/70 bg-slate-900/65 p-6 shadow-xl shadow-black/20">
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{chart.subtitle}</p>
                     <h4 className="mt-1 text-lg font-bold text-white">{chart.title}</h4>
                     <div className="mt-6 space-y-4">
-                      {chart.entries.map((entry, barIdx) => {
-                        const isHovered = hoveredBar?.chart === chartIdx && hoveredBar?.bar === barIdx;
-                        const pct = Math.round((entry.value / maxVal) * 100);
-                        return (
-                          <div
-                            key={entry.label}
-                            className="relative"
-                            onMouseEnter={() => setHoveredBar({ chart: chartIdx, bar: barIdx })}
-                            onMouseLeave={() => setHoveredBar(null)}
-                          >
-                            <div className="mb-1.5 flex items-center justify-between">
-                              <p className="max-w-28 truncate text-xs font-medium text-slate-300">{entry.label}</p>
-                              <p className="text-xs font-semibold tabular-nums text-slate-400">
-                                {entry.value.toLocaleString()} {chart.unit}
-                              </p>
-                            </div>
-                            <div className="h-7 w-full overflow-hidden rounded-full bg-slate-800/80">
-                              <div
-                                className={`h-full rounded-full transition-all duration-500 ${barColors[barIdx % barColors.length]}`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                            {isHovered && (
-                              <div className="absolute -top-16 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-2xl border border-slate-700/80 bg-slate-800/95 px-4 py-3 shadow-2xl shadow-black/60 backdrop-blur-sm">
-                                <p className="text-sm font-black text-white">{entry.label}</p>
-                                <p className="mt-0.5 text-xs text-slate-400">{entry.sub}</p>
-                                <p className="mt-1 text-sm font-bold text-blue-300">
-                                  {entry.value.toLocaleString()}{" "}
-                                  <span className="text-[10px] font-semibold text-slate-500">{chart.unit}</span>
+                      {chart.type === "bar" ? (
+                        (chart.entries as any[])?.map((entry: any, barIdx: number) => {
+                          const isHovered = hoveredBar?.chart === chartIdx && hoveredBar?.bar === barIdx;
+                          const pct = Math.round(((entry.value || 0) / maxVal) * 100);
+                          return (
+                            <div
+                              key={entry.label}
+                              className="relative"
+                              onMouseEnter={() => setHoveredBar({ chart: chartIdx, bar: barIdx })}
+                              onMouseLeave={() => setHoveredBar(null)}
+                            >
+                              <div className="mb-1.5 flex items-center justify-between">
+                                <p className="max-w-28 truncate text-xs font-medium text-slate-300">{entry.label}</p>
+                                <p className="text-xs font-semibold tabular-nums text-slate-400">
+                                  {(entry.value || 0).toLocaleString()} {chart.unit}
                                 </p>
                               </div>
-                            )}
+                              <div className="h-7 w-full overflow-hidden rounded-full bg-slate-800/80">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${barColors[barIdx % barColors.length]}`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              {isHovered && (
+                                <div className="absolute -top-16 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-2xl border border-slate-700/80 bg-slate-800/95 px-4 py-3 shadow-2xl shadow-black/60 backdrop-blur-sm">
+                                  <p className="text-sm font-black text-white">{entry.label}</p>
+                                  <p className="mt-0.5 text-xs text-slate-400">{entry.sub}</p>
+                                  <p className="mt-1 text-sm font-bold text-blue-300">
+                                    {(entry.value || 0).toLocaleString()}{" "}
+                                    <span className="text-[10px] font-semibold text-slate-500">{chart.unit}</span>
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : chart.type === "stacked-bar" ? (
+                        <div className="space-y-6">
+                          {chart.entries?.map((entry: any, entryIdx: number) => {
+                            const total = entry.values.reduce((a: number, b: number) => a + b, 0);
+                            const maxRowTotal = Math.max(...(chart.entries || []).map((e: any) => e.values.reduce((a: number, b: number) => a + b, 0)));
+                            return (
+                              <div key={entry.label} className="group/row">
+                                <div className="mb-2 flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-2 w-2 rounded-full bg-slate-700" />
+                                    <p className="text-sm font-bold text-white">{entry.label}</p>
+                                  </div>
+                                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{total} total</p>
+                                </div>
+                                <div className="relative h-8 w-full">
+                                  <div 
+                                    className="flex h-full overflow-hidden rounded-xl bg-slate-800/40 border border-slate-700/30 transition-all duration-1000"
+                                    style={{ width: `${(total / (maxRowTotal || 1)) * 100}%` }}
+                                  >
+                                    {entry.values.map((val: number, valIdx: number) => {
+                                      const pct = (val / total) * 100;
+                                      const colors = [
+                                        "bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]", 
+                                        "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]", 
+                                        "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+                                      ];
+                                      if (val === 0) return null;
+                                      return (
+                                        <div
+                                          key={valIdx}
+                                          className={`relative flex items-center justify-center transition-all duration-700 hover:brightness-125 ${colors[valIdx]}`}
+                                          style={{ width: `${pct}%` }}
+                                        >
+                                          {val > 2 && (
+                                            <span className="text-[10px] font-black text-slate-950 drop-shadow-sm">
+                                              {val}
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <div className="mt-8 flex items-center justify-center gap-6 rounded-2xl border border-slate-800/50 bg-slate-900/40 py-3">
+                            {["MOUs", "Calls", "Follows"].map((l, i) => (
+                              <div key={l} className="flex items-center gap-2">
+                                <span className={`h-2.5 w-2.5 rounded-full ${["bg-blue-500", "bg-emerald-500", "bg-amber-500"][i]}`} />
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{l}</span>
+                              </div>
+                            ))}
                           </div>
-                        );
-                      })}
+                        </div>
+                      ) : (
+                        <div className="relative h-60 w-full pt-4">
+                          <svg className="h-full w-full overflow-visible" viewBox="0 0 400 200" preserveAspectRatio="none">
+                            {chart.series?.map((s, sIdx) => {
+                              const maxS = Math.max(...chart.series!.flatMap(se => se.data));
+                              const path = getSmoothPath(s.data, 400, 200, maxS);
+                              return (
+                                <g key={sIdx}>
+                                  <defs>
+                                    <linearGradient id={`grad-smooth-${sIdx}`} x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="0%" stopColor={s.color} stopOpacity="0.2" />
+                                      <stop offset="100%" stopColor={s.color} stopOpacity="0" />
+                                    </linearGradient>
+                                  </defs>
+                                  <path
+                                    d={path}
+                                    fill="none"
+                                    stroke={s.color}
+                                    strokeWidth="3"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="transition-all duration-1000"
+                                  />
+                                  <path
+                                    d={`${path} L 400 200 L 0 200 Z`}
+                                    fill={`url(#grad-smooth-${sIdx})`}
+                                  />
+                                  {s.data.map((d, i) => (
+                                    <circle 
+                                      key={i} 
+                                      cx={(i / (s.data.length - 1)) * 400} 
+                                      cy={200 - (d / maxS) * 200} 
+                                      r="4" 
+                                      fill={s.color} 
+                                      className="group-hover:r-6 cursor-pointer"
+                                    />
+                                  ))}
+                                </g>
+                              );
+                            })}
+                          </svg>
+                          <div className="mt-8 flex justify-between px-2">
+                             {chart.categories?.map(c => (
+                               <span key={c} className="text-[9px] font-bold uppercase tracking-tighter text-slate-500">{c}</span>
+                             ))}
+                          </div>
+                          <div className="mt-4 flex gap-4">
+                            {chart.series?.map(s => (
+                              <div key={s.name} className="flex items-center gap-2">
+                                <span className="h-0.5 w-4" style={{ backgroundColor: s.color }} />
+                                <span className="text-[10px] text-slate-400 font-bold uppercase">{s.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -646,21 +801,6 @@ export default function TeamDashboard() {
                   </div>
                 ))}
               </div>
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-slate-800/70 bg-linear-to-br from-slate-900/75 via-slate-950 to-slate-900/75 p-5">
-            <h4 className="text-lg font-bold text-white">Live Activity Feed</h4>
-            <div className="mt-4 divide-y divide-slate-800/70">
-              {activityFeed.map((item, index) => (
-                <div key={index} className="flex items-center gap-4 py-3">
-                  <span className="text-xl shrink-0">{item.icon}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white">{item.event}</p>
-                    <p className="text-xs text-slate-500">{item.time}</p>
-                  </div>
-                </div>
-              ))}
             </div>
           </section>
         </main>
