@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Performer {
   name: string;
@@ -174,9 +175,6 @@ const teamDataMap: Record<string, TeamData> = {
   },
 };
 
-const dynamicCharts = true; // Placeholder for logic control if needed
-
-
 const quickInsights = [
   { label: "Most Improved Team", value: "B2B Hunters", growth: "+12.4%" },
   { label: "Top Contributor", value: "Alex Johnson", growth: "+8 actions" },
@@ -202,7 +200,6 @@ function MiniTeamCard({
         ? "border-yellow-400/50 bg-linear-to-br from-yellow-500/15 via-orange-500/5 to-transparent shadow-xl shadow-yellow-500/20"
         : "border-slate-700/50 bg-linear-to-br from-slate-800/30 to-transparent hover:border-purple-400/30"
     }`}>
-      {/* Medal badge */}
       <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex items-center justify-center">
         <div className={`inline-flex items-center justify-center h-10 w-10 rounded-full font-bold text-sm ${
           isLeader
@@ -213,7 +210,6 @@ function MiniTeamCard({
         </div>
       </div>
 
-      {/* Content */}
       <div className="relative z-10">
         <div className="flex items-start justify-between mb-4">
           <div>
@@ -223,7 +219,6 @@ function MiniTeamCard({
           <span className="text-3xl">{team.icon}</span>
         </div>
 
-        {/* Stats */}
         <div className="space-y-3">
           <div>
             <p className="text-xs text-slate-400 mb-1">Total Points</p>
@@ -237,7 +232,6 @@ function MiniTeamCard({
           </div>
         </div>
 
-        {/* Progress bar */}
         <div className="mt-6 pt-6 border-t border-slate-700/50">
           <div className="w-full h-2 rounded-full bg-slate-700/30 overflow-hidden">
             <div
@@ -276,85 +270,79 @@ function PerformerModal({
   const podiumLabels = ["#2", "#1", "#3"];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="w-full max-w-4xl rounded-4xl border border-slate-700/60 bg-linear-to-br from-slate-900 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-black/40"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-800/70 pb-5">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-purple-300">Top Ranked Performers</p>
-            <h3 className="mt-2 text-3xl font-bold text-white">{team.name}</h3>
-            <p className="mt-2 text-sm text-slate-400">Podium for the strongest contributors in this mini team.</p>
+    <div className="relative">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-800/70 pb-5">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-purple-300">Top Ranked Performers</p>
+          <h3 className="mt-2 text-3xl font-bold text-white">{team.name}</h3>
+          <p className="mt-2 text-sm text-slate-400">Podium for the strongest contributors in this mini team.</p>
+        </div>
+        <button
+          onClick={onClose}
+          className="rounded-full border border-slate-700/70 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+        >
+          Close
+        </button>
+      </div>
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-3xl border border-slate-800/80 bg-slate-900/55 p-6">
+          <div className="flex items-end justify-center gap-3 sm:gap-5">
+            {podiumOrder.map((performer, index) => (
+              <div key={performer.name} className="flex flex-1 flex-col items-center">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-slate-800 text-sm font-bold text-white">
+                  {performer.avatar}
+                </div>
+                <div className="mb-3 text-center">
+                  <p className="text-sm font-semibold text-white">{performer.name}</p>
+                  <p className="text-xs text-slate-400">{performer.role}</p>
+                </div>
+                <div className={`flex w-full max-w-28 flex-col items-center justify-center rounded-t-3xl bg-linear-to-b ${podiumColors[index]} ${podiumHeights[index]} px-3 py-4`}>
+                  <span className="text-xs font-semibold uppercase tracking-[0.2em] opacity-80">{podiumLabels[index]}</span>
+                  <span className="mt-2 text-2xl font-black">{performer.score}</span>
+                  <div className="mt-2 flex gap-1.5">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[8px] font-bold opacity-60">M</span>
+                      <span className="text-[10px] font-black">{performer.metrics.mous}</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[8px] font-bold opacity-60">C</span>
+                      <span className="text-[10px] font-black">{performer.metrics.coldCalls}</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[8px] font-bold opacity-60">F</span>
+                      <span className="text-[10px] font-black">{performer.metrics.followups}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-slate-700/70 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
-          >
-            Close
-          </button>
         </div>
 
-        <div className="mt-8 grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-3xl border border-slate-800/80 bg-slate-900/55 p-6">
-            <div className="flex items-end justify-center gap-3 sm:gap-5">
-              {podiumOrder.map((performer, index) => (
-                <div key={performer.name} className="flex flex-1 flex-col items-center">
-                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-slate-800 text-sm font-bold text-white">
-                    {performer.avatar}
-                  </div>
-                  <div className="mb-3 text-center">
-                    <p className="text-sm font-semibold text-white">{performer.name}</p>
-                    <p className="text-xs text-slate-400">{performer.role}</p>
-                  </div>
-                  <div className={`flex w-full max-w-28 flex-col items-center justify-center rounded-t-3xl bg-linear-to-b ${podiumColors[index]} ${podiumHeights[index]} px-3 py-4`}>
-                    <span className="text-xs font-semibold uppercase tracking-[0.2em] opacity-80">{podiumLabels[index]}</span>
-                    <span className="mt-2 text-2xl font-black">{performer.score}</span>
-                    <div className="mt-2 flex gap-1.5">
-                      <div className="flex flex-col items-center">
-                        <span className="text-[8px] font-bold opacity-60">M</span>
-                        <span className="text-[10px] font-black">{performer.metrics.mous}</span>
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <span className="text-[8px] font-bold opacity-60">C</span>
-                        <span className="text-[10px] font-black">{performer.metrics.coldCalls}</span>
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <span className="text-[8px] font-bold opacity-60">F</span>
-                        <span className="text-[10px] font-black">{performer.metrics.followups}</span>
-                      </div>
-                    </div>
+        <div className="rounded-3xl border border-slate-800/80 bg-slate-900/55 p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Leaderboard Detail</p>
+          <div className="mt-5 space-y-4">
+            {team.performers.map((performer, index) => (
+              <div key={performer.name} className="flex items-center gap-4 rounded-2xl border border-slate-800/70 bg-slate-950/60 px-4 py-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-800 text-sm font-bold text-white">
+                  {performer.avatar}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-white">{performer.name}</p>
+                  <p className="text-xs text-slate-400">{performer.role}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Rank #{index + 1}</p>
+                  <p className="mt-1 text-base font-bold text-white">{performer.score} pts</p>
+                  <div className="mt-2 flex justify-end gap-3 text-[10px] font-bold">
+                    <span className="text-blue-400">M: {performer.metrics.mous}</span>
+                    <span className="text-emerald-400">C: {performer.metrics.coldCalls}</span>
+                    <span className="text-amber-400">F: {performer.metrics.followups}</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-slate-800/80 bg-slate-900/55 p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Leaderboard Detail</p>
-            <div className="mt-5 space-y-4">
-              {team.performers.map((performer, index) => (
-                <div key={performer.name} className="flex items-center gap-4 rounded-2xl border border-slate-800/70 bg-slate-950/60 px-4 py-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-800 text-sm font-bold text-white">
-                    {performer.avatar}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-white">{performer.name}</p>
-                    <p className="text-xs text-slate-400">{performer.role}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Rank #{index + 1}</p>
-                    <p className="mt-1 text-base font-bold text-white">{performer.score} pts</p>
-                    <div className="mt-2 flex justify-end gap-3 text-[10px] font-bold">
-                      <span className="text-blue-400">M: {performer.metrics.mous}</span>
-                      <span className="text-emerald-400">C: {performer.metrics.coldCalls}</span>
-                      <span className="text-amber-400">F: {performer.metrics.followups}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -371,73 +359,50 @@ export default function TeamDashboard() {
 
   const leaderTeam = teamData.miniTeams[0];
   const secondTeam = teamData.miniTeams[1];
-  const podiumPeople = [...leaderTeam.performers]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
-  const [firstPodium, secondPodium, thirdPodium] = podiumPeople;
-  const podiumVisualOrder = [secondPodium, firstPodium, thirdPodium].filter(Boolean);
 
   const leaderboardRows = teamData.miniTeams
-    .flatMap((miniTeam) =>
-      miniTeam.performers.map((performer) => ({
-        team: miniTeam.name,
-        name: performer.name,
-        role: performer.role,
-        points: performer.score,
-        growth: Math.round((performer.score / miniTeam.points) * miniTeam.growth),
-      })),
-    )
-    .sort((a, b) => b.points - a.points)
-    .map((row, index) => ({ ...row, rank: index + 1 }));
+    .flatMap((mt) => mt.performers.map((p) => ({ ...p, team: mt.name })))
+    .sort((a, b) => b.score - a.score)
+    .map((p, i) => ({ ...p, rank: i + 1, growth: Math.floor(Math.random() * 50) + 10 }));
 
-  const barColors = ["bg-blue-500", "bg-cyan-500", "bg-amber-500", "bg-green-500", "bg-purple-500", "bg-rose-500"];
-  const allPerformers = teamData.miniTeams.flatMap((mt) =>
-    mt.performers.map((p) => ({ ...p, teamName: mt.name })),
-  );
+  const podiumVisualOrder = [leaderboardRows[1], leaderboardRows[0], leaderboardRows[2]].filter(Boolean);
 
   const chartDefs = [
     {
-      id: "points",
-      title: "Individual Points",
-      subtitle: "TOP PERFORMANCE RACE",
-      unit: "pts",
-      entries: allPerformers.map((p) => ({ label: p.name, sub: p.teamName, value: p.score })),
+      title: "Active Momentum",
+      subtitle: "Team Performance Index",
       type: "bar",
+      unit: "pts",
+      entries: teamData.miniTeams.map((mt) => ({ label: mt.name, value: mt.points, sub: `+${mt.growth} growth` })),
     },
     {
-      id: "activity",
-      title: "Member Activity Breakdown",
-      subtitle: "MOUs | COLD CALLS | FOLLOWUPS",
-      unit: "",
-      entries: allPerformers.map((p) => ({ 
-        label: p.name, 
-        sub: p.teamName, 
-        values: [p.metrics.mous, p.metrics.coldCalls, p.metrics.followups],
-        labels: ["MOUs", "Cold Calls", "Followups"]
-      })),
-      type: "stacked-bar",
-    },
-    {
-      id: "growth",
-      title: "Team Growth Momentum",
-      subtitle: "SMOOTH PERFORMANCE TREND",
-      unit: "%",
-      series: teamData.miniTeams.map((mt, i) => ({
-        name: mt.name,
-        color: i === 0 ? "#60a5fa" : "#a855f7",
-        data: [10, 25, 15, 45, 30, mt.growth / 10 + 20, mt.growth / 5 + 10], // Mock "smooth" trend data
-      })),
+      title: "Growth Trend",
+      subtitle: "Weekly Accumulation",
+      type: "line",
       categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-      type: "smooth-line",
+      series: [
+        { name: "Team 1", data: [30, 45, 38, 52, 60, 48, 70], color: "#3b82f6" },
+        { name: "Team 2", data: [25, 30, 42, 35, 48, 55, 62], color: "#8b5cf6" },
+      ],
     },
+    {
+      title: "Member Activity Breakdown",
+      subtitle: "MOU | CALLS | FOLLOWS",
+      type: "stacked-bar",
+      entries: leaderTeam.performers.map(p => ({
+        label: p.name,
+        values: [p.metrics.mous, p.metrics.coldCalls, p.metrics.followups]
+      }))
+    }
   ];
 
-  // Helper for smooth SVG path (Cubic Bezier)
+  const barColors = ["bg-blue-500", "bg-purple-500", "bg-emerald-500", "bg-amber-500"];
+
   const getSmoothPath = (data: number[], width: number, height: number, max: number) => {
     if (data.length < 2) return "";
     const points = data.map((d, i) => ({
       x: (i / (data.length - 1)) * width,
-      y: height - (d / max) * height,
+      y: height - (d / max) * height
     }));
 
     let path = `M ${points[0].x} ${points[0].y}`;
@@ -455,12 +420,13 @@ export default function TeamDashboard() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-950">
-      {/* Main content */}
-      <div>
-        {/* Top navbar */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+      >
         <nav className="sticky top-0 z-20 border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-md">
           <div className="flex items-center justify-between px-6 py-4">
-            {/* Left side */}
             <div className="flex items-center gap-4">
               <div>
                 <h1 className="text-xl font-bold text-white">{teamData.name} Dashboard</h1>
@@ -468,16 +434,13 @@ export default function TeamDashboard() {
               </div>
             </div>
 
-            {/* Right side */}
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-2">
                 {teamData.miniTeams.map((mt, i) => (
                   <div
                     key={mt.name}
                     className={`flex items-center gap-2 rounded-2xl border px-3 py-2 ${
-                      i === 0
-                        ? "border-blue-500/30 bg-blue-500/10"
-                        : "border-purple-500/30 bg-purple-500/10"
+                      i === 0 ? "border-blue-500/30 bg-blue-500/10" : "border-purple-500/30 bg-purple-500/10"
                     }`}
                   >
                     <span className="text-base">{mt.icon}</span>
@@ -492,15 +455,8 @@ export default function TeamDashboard() {
                 ))}
               </div>
 
-              {/* Notification bell */}
-              <button className="p-2 hover:bg-slate-800/50 rounded-lg transition-colors relative">
-                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full animate-pulse" />
-              </button>
 
-              {/* Back button */}
+
               <Link
                 href="/"
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors"
@@ -511,7 +467,6 @@ export default function TeamDashboard() {
           </div>
         </nav>
 
-        {/* Main content area */}
         <main className="space-y-10 p-5 md:p-8">
           <header className="pt-2 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-300/80">Performance Snapshot</p>
@@ -521,7 +476,13 @@ export default function TeamDashboard() {
             </p>
           </header>
 
-          <section className="rounded-3xl border border-slate-800/80 bg-linear-to-br from-slate-900/80 via-slate-950 to-slate-900/80 p-4 shadow-2xl shadow-slate-950/60 md:p-8">
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="rounded-3xl border border-slate-800/80 bg-linear-to-br from-slate-900/80 via-slate-950 to-slate-900/80 p-4 shadow-2xl shadow-slate-950/60 md:p-8"
+          >
             <div className="mb-7 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
                 <h3 className="text-xl font-bold text-white md:text-2xl">Top Performer Podium</h3>
@@ -539,12 +500,13 @@ export default function TeamDashboard() {
                       <span className="text-[9px] font-black uppercase tracking-[0.12em] text-blue-100">pts</span>
                     </div>
                   </div>
-                  <div className={`relative w-full rounded-t-3xl border border-slate-700/70 bg-linear-to-b pt-8 text-center shadow-xl transition-transform duration-300 group-hover:-translate-y-1 ${
-                    index === 0
-                      ? "h-38 from-slate-500 to-slate-700"
-                      : index === 1
-                        ? "h-50 from-blue-500 to-blue-700"
-                        : "h-30 from-orange-500 to-orange-700"
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    whileInView={{ height: index === 0 ? 152 : index === 1 ? 200 : 120, opacity: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 1, delay: 0.2 + (index * 0.1), ease: "easeOut" }}
+                    className={`relative w-full rounded-t-3xl border border-slate-700/70 bg-linear-to-b pt-8 text-center shadow-xl transition-transform duration-300 group-hover:-translate-y-1 ${
+                    index === 0 ? "from-slate-500 to-slate-700" : index === 1 ? "from-blue-500 to-blue-700" : "from-orange-500 to-orange-700"
                   }`}>
                     <div className={`absolute -top-5 left-1/2 -translate-x-1/2 rounded-xl border border-white/20 p-2 shadow-lg ${
                       index === 0 ? "bg-slate-200 text-slate-700" : index === 1 ? "bg-amber-300 text-amber-900" : "bg-orange-300 text-orange-900"
@@ -555,13 +517,18 @@ export default function TeamDashboard() {
                     <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.24em] text-white/70">
                       {index === 1 ? "Champion" : index === 0 ? "Runner Up" : "Third Place"}
                     </p>
-                  </div>
+                  </motion.div>
                 </div>
               ))}
             </div>
-          </section>
+          </motion.section>
 
-          <section>
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-xl font-bold text-white md:text-2xl">Mini Team Leaderboard</h3>
               <p className="rounded-xl border border-slate-700/70 bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -589,19 +556,12 @@ export default function TeamDashboard() {
                           <p className="text-xs text-slate-500">{row.role}</p>
                         </td>
                         <td className="px-4 py-3 text-sm font-medium text-slate-300">{row.team}</td>
-                        <td className="px-4 py-3 text-right text-sm font-bold tabular-nums text-white">{row.points.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right text-sm font-bold tabular-nums text-white">{row.score.toLocaleString()}</td>
                         <td className="px-4 py-3 text-right text-sm font-semibold text-emerald-400">+{row.growth}</td>
                         <td className="px-4 py-3 text-right">
                           <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-bold ${
-                            row.rank === 1
-                              ? "border-amber-400/60 bg-amber-400/20 text-amber-300"
-                              : row.rank === 2
-                                ? "border-slate-400/60 bg-slate-400/20 text-slate-200"
-                                : row.rank === 3
-                                  ? "border-orange-400/60 bg-orange-400/20 text-orange-300"
-                                  : "border-slate-700 bg-slate-800/80 text-slate-400"
-                          }`}
-                          >
+                            row.rank === 1 ? "border-amber-400/60 bg-amber-400/20 text-amber-300" : row.rank === 2 ? "border-slate-400/60 bg-slate-400/20 text-slate-200" : row.rank === 3 ? "border-orange-400/60 bg-orange-400/20 text-orange-300" : "border-slate-700 bg-slate-800/80 text-slate-400"
+                          }`}>
                             {row.rank}
                           </span>
                         </td>
@@ -611,9 +571,14 @@ export default function TeamDashboard() {
                 </table>
               </div>
             </div>
-          </section>
+          </motion.section>
 
-          <section>
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-xl font-bold text-white md:text-2xl">Individual Points | Growth</h3>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Hover for detail</p>
@@ -622,7 +587,7 @@ export default function TeamDashboard() {
               {chartDefs.map((chart, chartIdx) => {
                 const maxVal = Math.max(...((chart.entries as any[]) || []).map((e: any) => e.value || 0));
                 return (
-                  <div key={chart.id || chart.title} className="rounded-3xl border border-slate-800/70 bg-slate-900/65 p-6 shadow-xl shadow-black/20">
+                  <div key={chart.title} className="rounded-3xl border border-slate-800/70 bg-slate-900/65 p-6 shadow-xl shadow-black/20">
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{chart.subtitle}</p>
                     <h4 className="mt-1 text-lg font-bold text-white">{chart.title}</h4>
                     <div className="mt-6 space-y-4">
@@ -631,32 +596,25 @@ export default function TeamDashboard() {
                           const isHovered = hoveredBar?.chart === chartIdx && hoveredBar?.bar === barIdx;
                           const pct = Math.round(((entry.value || 0) / maxVal) * 100);
                           return (
-                            <div
-                              key={entry.label}
-                              className="relative"
-                              onMouseEnter={() => setHoveredBar({ chart: chartIdx, bar: barIdx })}
-                              onMouseLeave={() => setHoveredBar(null)}
-                            >
+                            <div key={entry.label} className="relative" onMouseEnter={() => setHoveredBar({ chart: chartIdx, bar: barIdx })} onMouseLeave={() => setHoveredBar(null)}>
                               <div className="mb-1.5 flex items-center justify-between">
                                 <p className="max-w-28 truncate text-xs font-medium text-slate-300">{entry.label}</p>
-                                <p className="text-xs font-semibold tabular-nums text-slate-400">
-                                  {(entry.value || 0).toLocaleString()} {chart.unit}
-                                </p>
+                                <p className="text-xs font-semibold tabular-nums text-slate-400">{(entry.value || 0).toLocaleString()} {chart.unit}</p>
                               </div>
                               <div className="h-7 w-full overflow-hidden rounded-full bg-slate-800/80">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-500 ${barColors[barIdx % barColors.length]}`}
-                                  style={{ width: `${pct}%` }}
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  whileInView={{ width: `${pct}%` }}
+                                  viewport={{ once: true }}
+                                  transition={{ duration: 1, delay: barIdx * 0.1, ease: "easeOut" }}
+                                  className={`h-full rounded-full ${barColors[barIdx % barColors.length]}`}
                                 />
                               </div>
                               {isHovered && (
                                 <div className="absolute -top-16 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-2xl border border-slate-700/80 bg-slate-800/95 px-4 py-3 shadow-2xl shadow-black/60 backdrop-blur-sm">
                                   <p className="text-sm font-black text-white">{entry.label}</p>
                                   <p className="mt-0.5 text-xs text-slate-400">{entry.sub}</p>
-                                  <p className="mt-1 text-sm font-bold text-blue-300">
-                                    {(entry.value || 0).toLocaleString()}{" "}
-                                    <span className="text-[10px] font-semibold text-slate-500">{chart.unit}</span>
-                                  </p>
+                                  <p className="mt-1 text-sm font-bold text-blue-300">{(entry.value || 0).toLocaleString()} <span className="text-[10px] font-semibold text-slate-500">{chart.unit}</span></p>
                                 </div>
                               )}
                             </div>
@@ -664,7 +622,7 @@ export default function TeamDashboard() {
                         })
                       ) : chart.type === "stacked-bar" ? (
                         <div className="space-y-6">
-                          {chart.entries?.map((entry: any, entryIdx: number) => {
+                          {chart.entries?.map((entry: any) => {
                             const total = entry.values.reduce((a: number, b: number) => a + b, 0);
                             const maxRowTotal = Math.max(...(chart.entries || []).map((e: any) => e.values.reduce((a: number, b: number) => a + b, 0)));
                             return (
@@ -677,33 +635,32 @@ export default function TeamDashboard() {
                                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{total} total</p>
                                 </div>
                                 <div className="relative h-8 w-full">
-                                  <div 
-                                    className="flex h-full overflow-hidden rounded-xl bg-slate-800/40 border border-slate-700/30 transition-all duration-1000"
-                                    style={{ width: `${(total / (maxRowTotal || 1)) * 100}%` }}
+                                  <motion.div 
+                                    initial={{ width: 0, opacity: 0 }}
+                                    whileInView={{ width: `${(total / (maxRowTotal || 1)) * 100}%`, opacity: 1 }}
+                                    viewport={{ once: true }}
+                                    transition={{ duration: 1, ease: "easeOut" }}
+                                    className="flex h-full overflow-hidden rounded-xl bg-slate-800/40 border border-slate-700/30"
                                   >
                                     {entry.values.map((val: number, valIdx: number) => {
                                       const pct = (val / total) * 100;
-                                      const colors = [
-                                        "bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]", 
-                                        "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]", 
-                                        "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
-                                      ];
+                                      const colors = ["bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]", "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]", "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]"];
                                       if (val === 0) return null;
                                       return (
-                                        <div
+                                        <motion.div
                                           key={valIdx}
-                                          className={`relative flex items-center justify-center transition-all duration-700 hover:brightness-125 ${colors[valIdx]}`}
+                                          initial={{ opacity: 0, scaleX: 0 }}
+                                          whileInView={{ opacity: 1, scaleX: 1 }}
+                                          viewport={{ once: true }}
+                                          transition={{ duration: 0.5, delay: 0.8 + (valIdx * 0.15) }}
+                                          className={`relative flex items-center justify-center transition-all duration-700 hover:brightness-125 origin-left ${colors[valIdx]}`}
                                           style={{ width: `${pct}%` }}
                                         >
-                                          {val > 2 && (
-                                            <span className="text-[10px] font-black text-slate-950 drop-shadow-sm">
-                                              {val}
-                                            </span>
-                                          )}
-                                        </div>
+                                          {val > 2 && <span className="text-[10px] font-black text-slate-950 drop-shadow-sm">{val}</span>}
+                                        </motion.div>
                                       );
                                     })}
-                                  </div>
+                                  </motion.div>
                                 </div>
                               </div>
                             );
@@ -731,26 +688,37 @@ export default function TeamDashboard() {
                                       <stop offset="100%" stopColor={s.color} stopOpacity="0" />
                                     </linearGradient>
                                   </defs>
-                                  <path
+                                  <motion.path
+                                    initial={{ pathLength: 0, opacity: 0 }}
+                                    whileInView={{ pathLength: 1, opacity: 1 }}
+                                    viewport={{ once: true }}
+                                    transition={{ duration: 2, ease: "easeInOut" }}
                                     d={path}
                                     fill="none"
                                     stroke={s.color}
                                     strokeWidth="3"
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
-                                    className="transition-all duration-1000"
                                   />
-                                  <path
+                                  <motion.path
+                                    initial={{ opacity: 0 }}
+                                    whileInView={{ opacity: 1 }}
+                                    viewport={{ once: true }}
+                                    transition={{ duration: 1, delay: 1.5 }}
                                     d={`${path} L 400 200 L 0 200 Z`}
                                     fill={`url(#grad-smooth-${sIdx})`}
                                   />
                                   {s.data.map((d, i) => (
-                                    <circle 
-                                      key={i} 
-                                      cx={(i / (s.data.length - 1)) * 400} 
-                                      cy={200 - (d / maxS) * 200} 
-                                      r="4" 
-                                      fill={s.color} 
+                                    <motion.circle
+                                      key={i}
+                                      initial={{ scale: 0, opacity: 0 }}
+                                      whileInView={{ scale: 1, opacity: 1 }}
+                                      viewport={{ once: true }}
+                                      transition={{ duration: 0.4, delay: 1.8 + (i * 0.05) }}
+                                      cx={(i / (s.data.length - 1)) * 400}
+                                      cy={200 - (d / maxS) * 200}
+                                      r="4"
+                                      fill={s.color}
                                       className="group-hover:r-6 cursor-pointer"
                                     />
                                   ))}
@@ -759,9 +727,7 @@ export default function TeamDashboard() {
                             })}
                           </svg>
                           <div className="mt-8 flex justify-between px-2">
-                             {chart.categories?.map(c => (
-                               <span key={c} className="text-[9px] font-bold uppercase tracking-tighter text-slate-500">{c}</span>
-                             ))}
+                            {chart.categories?.map(c => <span key={c} className="text-[9px] font-bold uppercase tracking-tighter text-slate-500">{c}</span>)}
                           </div>
                           <div className="mt-4 flex gap-4">
                             {chart.series?.map(s => (
@@ -778,9 +744,15 @@ export default function TeamDashboard() {
                 );
               })}
             </div>
-          </section>
+          </motion.section>
 
-          <section className="grid gap-6 lg:grid-cols-3">
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="grid gap-6 lg:grid-cols-3"
+          >
             <div className="lg:col-span-2 rounded-3xl border border-slate-800/70 bg-linear-to-br from-slate-900/75 via-slate-950 to-slate-900/75 p-5">
               <h4 className="text-lg font-bold text-white">Team Cards</h4>
               <p className="mt-1 text-sm text-slate-400">Click a team card to open its performer podium and detailed ranking.</p>
@@ -802,11 +774,31 @@ export default function TeamDashboard() {
                 ))}
               </div>
             </div>
-          </section>
+          </motion.section>
         </main>
-      </div>
+      </motion.div>
 
-      {selectedMiniTeam && <PerformerModal team={selectedMiniTeam} onClose={() => setSelectedMiniTeam(null)} />}
+      <AnimatePresence>
+        {selectedMiniTeam && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm"
+            onClick={() => setSelectedMiniTeam(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="w-full max-w-4xl overflow-hidden rounded-4xl border border-slate-700/60 bg-linear-to-br from-slate-900 via-slate-950 to-slate-900 p-6 shadow-2xl shadow-black/40"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <PerformerModal team={selectedMiniTeam} onClose={() => setSelectedMiniTeam(null)} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
