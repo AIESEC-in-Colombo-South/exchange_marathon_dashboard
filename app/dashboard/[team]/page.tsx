@@ -579,12 +579,28 @@ export default function TeamDashboard() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
+            <div className="rounded-3xl border border-slate-800/70 bg-linear-to-br from-slate-900/75 via-slate-950 to-slate-900/75 p-5">
+              <h4 className="text-lg font-bold text-white">Team Cards</h4>
+              <p className="mt-1 text-sm text-slate-400">Click a team card to open its performer podium and detailed ranking.</p>
+              <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+                <MiniTeamCard team={leaderTeam} isLeader={true} onSelect={() => setSelectedMiniTeam(leaderTeam)} />
+                <MiniTeamCard team={secondTeam} isLeader={false} onSelect={() => setSelectedMiniTeam(secondTeam)} />
+              </div>
+            </div>
+          </motion.section>
+
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-xl font-bold text-white md:text-2xl">Individual Points | Growth</h3>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Hover for detail</p>
             </div>
             <div className="grid gap-6 md:grid-cols-2">
-              {chartDefs.map((chart, chartIdx) => {
+              {chartDefs.filter((chart) => chart.type !== "stacked-bar").map((chart, chartIdx) => {
                 const maxVal = Math.max(...((chart.entries as any[]) || []).map((e: any) => e.value || 0));
                 return (
                   <div key={chart.title} className="rounded-3xl border border-slate-800/70 bg-slate-900/65 p-6 shadow-xl shadow-black/20">
@@ -675,57 +691,59 @@ export default function TeamDashboard() {
                           </div>
                         </div>
                       ) : (
-                        <div className="relative h-60 w-full pt-4">
-                          <svg className="h-full w-full overflow-visible" viewBox="0 0 400 200" preserveAspectRatio="none">
-                            {chart.series?.map((s, sIdx) => {
-                              const maxS = Math.max(...chart.series!.flatMap(se => se.data));
-                              const path = getSmoothPath(s.data, 400, 200, maxS);
-                              return (
-                                <g key={sIdx}>
-                                  <defs>
-                                    <linearGradient id={`grad-smooth-${sIdx}`} x1="0" y1="0" x2="0" y2="1">
-                                      <stop offset="0%" stopColor={s.color} stopOpacity="0.2" />
-                                      <stop offset="100%" stopColor={s.color} stopOpacity="0" />
-                                    </linearGradient>
-                                  </defs>
-                                  <motion.path
-                                    initial={{ pathLength: 0, opacity: 0 }}
-                                    whileInView={{ pathLength: 1, opacity: 1 }}
-                                    viewport={{ once: true }}
-                                    transition={{ duration: 2, ease: "easeInOut" }}
-                                    d={path}
-                                    fill="none"
-                                    stroke={s.color}
-                                    strokeWidth="3"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                  <motion.path
-                                    initial={{ opacity: 0 }}
-                                    whileInView={{ opacity: 1 }}
-                                    viewport={{ once: true }}
-                                    transition={{ duration: 1, delay: 1.5 }}
-                                    d={`${path} L 400 200 L 0 200 Z`}
-                                    fill={`url(#grad-smooth-${sIdx})`}
-                                  />
-                                  {s.data.map((d, i) => (
-                                    <motion.circle
-                                      key={i}
-                                      initial={{ scale: 0, opacity: 0 }}
-                                      whileInView={{ scale: 1, opacity: 1 }}
+                        <div className="w-full pt-4">
+                          <div className="relative h-60 w-full">
+                            <svg className="h-full w-full overflow-visible" viewBox="0 0 400 200" preserveAspectRatio="none">
+                              {chart.series?.map((s, sIdx) => {
+                                const maxS = Math.max(...chart.series!.flatMap(se => se.data));
+                                const path = getSmoothPath(s.data, 400, 200, maxS);
+                                return (
+                                  <g key={sIdx}>
+                                    <defs>
+                                      <linearGradient id={`grad-smooth-${sIdx}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor={s.color} stopOpacity="0.2" />
+                                        <stop offset="100%" stopColor={s.color} stopOpacity="0" />
+                                      </linearGradient>
+                                    </defs>
+                                    <motion.path
+                                      initial={{ pathLength: 0, opacity: 0 }}
+                                      whileInView={{ pathLength: 1, opacity: 1 }}
                                       viewport={{ once: true }}
-                                      transition={{ duration: 0.4, delay: 1.8 + (i * 0.05) }}
-                                      cx={(i / (s.data.length - 1)) * 400}
-                                      cy={200 - (d / maxS) * 200}
-                                      r="4"
-                                      fill={s.color}
-                                      className="group-hover:r-6 cursor-pointer"
+                                      transition={{ duration: 2, ease: "easeInOut" }}
+                                      d={path}
+                                      fill="none"
+                                      stroke={s.color}
+                                      strokeWidth="3"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
                                     />
-                                  ))}
-                                </g>
-                              );
-                            })}
-                          </svg>
+                                    <motion.path
+                                      initial={{ opacity: 0 }}
+                                      whileInView={{ opacity: 1 }}
+                                      viewport={{ once: true }}
+                                      transition={{ duration: 1, delay: 1.5 }}
+                                      d={`${path} L 400 200 L 0 200 Z`}
+                                      fill={`url(#grad-smooth-${sIdx})`}
+                                    />
+                                    {s.data.map((d, i) => (
+                                      <motion.circle
+                                        key={i}
+                                        initial={{ scale: 0, opacity: 0 }}
+                                        whileInView={{ scale: 1, opacity: 1 }}
+                                        viewport={{ once: true }}
+                                        transition={{ duration: 0.4, delay: 1.8 + (i * 0.05) }}
+                                        cx={(i / (s.data.length - 1)) * 400}
+                                        cy={200 - (d / maxS) * 200}
+                                        r="4"
+                                        fill={s.color}
+                                        className="group-hover:r-6 cursor-pointer"
+                                      />
+                                    ))}
+                                  </g>
+                                );
+                              })}
+                            </svg>
+                          </div>
                           <div className="mt-8 flex justify-between px-2">
                             {chart.categories?.map(c => <span key={c} className="text-[9px] font-bold uppercase tracking-tighter text-slate-500">{c}</span>)}
                           </div>
@@ -744,34 +762,85 @@ export default function TeamDashboard() {
                 );
               })}
             </div>
-          </motion.section>
 
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="grid gap-6 lg:grid-cols-3"
-          >
-            <div className="lg:col-span-2 rounded-3xl border border-slate-800/70 bg-linear-to-br from-slate-900/75 via-slate-950 to-slate-900/75 p-5">
-              <h4 className="text-lg font-bold text-white">Team Cards</h4>
-              <p className="mt-1 text-sm text-slate-400">Click a team card to open its performer podium and detailed ranking.</p>
-              <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-                <MiniTeamCard team={leaderTeam} isLeader={true} onSelect={() => setSelectedMiniTeam(leaderTeam)} />
-                <MiniTeamCard team={secondTeam} isLeader={false} onSelect={() => setSelectedMiniTeam(secondTeam)} />
-              </div>
-            </div>
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
+              {chartDefs
+                .filter((chart) => chart.type === "stacked-bar")
+                .map((chart) => {
+                  return (
+                    <div key={chart.title} className="rounded-3xl border border-slate-800/70 bg-slate-900/65 p-6 shadow-xl shadow-black/20">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{chart.subtitle}</p>
+                      <h4 className="mt-1 text-lg font-bold text-white">{chart.title}</h4>
+                      <div className="mt-6 space-y-4">
+                        <div className="space-y-6">
+                          {chart.entries?.map((entry: any) => {
+                            const total = entry.values.reduce((a: number, b: number) => a + b, 0);
+                            const maxRowTotal = Math.max(...(chart.entries || []).map((e: any) => e.values.reduce((a: number, b: number) => a + b, 0)));
+                            return (
+                              <div key={entry.label} className="group/row">
+                                <div className="mb-2 flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-2 w-2 rounded-full bg-slate-700" />
+                                    <p className="text-sm font-bold text-white">{entry.label}</p>
+                                  </div>
+                                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{total} total</p>
+                                </div>
+                                <div className="relative h-8 w-full">
+                                  <motion.div
+                                    initial={{ width: 0, opacity: 0 }}
+                                    whileInView={{ width: `${(total / (maxRowTotal || 1)) * 100}%`, opacity: 1 }}
+                                    viewport={{ once: true }}
+                                    transition={{ duration: 1, ease: "easeOut" }}
+                                    className="flex h-full overflow-hidden rounded-xl bg-slate-800/40 border border-slate-700/30"
+                                  >
+                                    {entry.values.map((val: number, valIdx: number) => {
+                                      const pct = (val / total) * 100;
+                                      const colors = ["bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]", "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]", "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]"];
+                                      if (val === 0) return null;
+                                      return (
+                                        <motion.div
+                                          key={valIdx}
+                                          initial={{ opacity: 0, scaleX: 0 }}
+                                          whileInView={{ opacity: 1, scaleX: 1 }}
+                                          viewport={{ once: true }}
+                                          transition={{ duration: 0.5, delay: 0.8 + valIdx * 0.15 }}
+                                          className={`relative flex items-center justify-center transition-all duration-700 hover:brightness-125 origin-left ${colors[valIdx]}`}
+                                          style={{ width: `${pct}%` }}
+                                        >
+                                          {val > 2 && <span className="text-[10px] font-black text-slate-950 drop-shadow-sm">{val}</span>}
+                                        </motion.div>
+                                      );
+                                    })}
+                                  </motion.div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <div className="mt-8 flex items-center justify-center gap-6 rounded-2xl border border-slate-800/50 bg-slate-900/40 py-3">
+                            {["MOUs", "Calls", "Follows"].map((l, i) => (
+                              <div key={l} className="flex items-center gap-2">
+                                <span className={`h-2.5 w-2.5 rounded-full ${["bg-blue-500", "bg-emerald-500", "bg-amber-500"][i]}`} />
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{l}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
 
-            <div className="rounded-3xl border border-slate-800/70 bg-linear-to-br from-slate-900/75 via-slate-950 to-slate-900/75 p-5">
-              <h4 className="text-lg font-bold text-white">Quick Insights</h4>
-              <div className="mt-4 space-y-3">
-                {quickInsights.map((insight, index) => (
-                  <div key={index} className="rounded-2xl border border-slate-800/80 bg-slate-900/80 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{insight.label}</p>
-                    <p className="mt-1 text-sm font-bold text-white">{insight.value}</p>
-                    <p className="mt-1 text-xs font-semibold text-blue-300">{insight.growth}</p>
-                  </div>
-                ))}
+              <div className="rounded-3xl border border-slate-800/70 bg-linear-to-br from-slate-900/75 via-slate-950 to-slate-900/75 p-5">
+                <h4 className="text-lg font-bold text-white">Quick Insights</h4>
+                <div className="mt-4 space-y-3">
+                  {quickInsights.map((insight, index) => (
+                    <div key={index} className="rounded-2xl border border-slate-800/80 bg-slate-900/80 p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{insight.label}</p>
+                      <p className="mt-1 text-sm font-bold text-white">{insight.value}</p>
+                      <p className="mt-1 text-xs font-semibold text-blue-300">{insight.growth}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </motion.section>
