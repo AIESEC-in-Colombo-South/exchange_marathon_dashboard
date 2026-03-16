@@ -127,7 +127,7 @@ export default function Home() {
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 backdrop-blur-sm">
             <div className="h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
             <span className="text-xs font-semibold uppercase tracking-widest text-blue-300">
-              Season 2024 Live
+              Season 2026 Live
             </span>
           </div>
 
