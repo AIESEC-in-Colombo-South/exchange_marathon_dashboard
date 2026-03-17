@@ -343,7 +343,7 @@ function PerformerModal({
               {podiumOrder.map((performer, index) => {
                 const isFirst = performer === first;
                 const pRankNum = isFirst ? '1' : index === 0 ? '2' : '3';
-                const pHeight = isFirst ? 'h-36 sm:h-44' : index === 0 ? 'h-28 sm:h-32' : 'h-24 sm:h-28';
+                const pHeight = isFirst ? 'h-40 sm:h-52' : index === 0 ? 'h-32 sm:h-36' : 'h-28 sm:h-32';
                 return (
                   <div key={performer.name} className="flex flex-1 flex-col items-center group/podium max-w-[120px] sm:max-w-[160px]">
                     <div className="mb-4 sm:mb-6 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl glass-premium text-sm sm:text-base font-black text-white shadow-2xl group-hover/podium:scale-110 transition-transform duration-500">
@@ -407,7 +407,10 @@ function PerformerModal({
                     </div>
                     <div className="relative z-10 text-right shrink-0">
                       <p className="text-xl font-black text-white tabular-nums tracking-tighter">{performer.score}</p>
-                      <p className="text-[8px] font-black text-white/10">XP TOTAL</p>
+                      <div className="flex flex-col sm:flex-row gap-1 sm:gap-3 items-end sm:items-center mt-1">
+                        <p className="text-[8px] font-black text-white/10 uppercase">XP TOTAL</p>
+                        <p className="text-[8px] font-black text-[var(--level-up)] uppercase">+{(performer.score * 0.1).toFixed(0)} Growth</p>
+                      </div>
                     </div>
                   </div>
                 );
@@ -451,8 +454,8 @@ export default function TeamDashboard() {
       type: "line",
       categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
       series: [
-        { name: "Global Reach", data: [40, 55, 48, 62, 70, 58, 80], color: "#FF1744" }, // Vibrant Red
-        { name: "Direct Conversions", data: [20, 35, 45, 30, 50, 60, 68], color: "#00E5FF" }, // Cyan
+        { name: leaderTeam.name, data: [40, 55, 48, 62, 70, 58, 80], color: "#FF1744" }, // Vibrant Red
+        { name: secondTeam.name, data: [20, 35, 45, 30, 50, 60, 68], color: "#00E5FF" }, // Cyan
       ],
     },
     {
@@ -586,7 +589,7 @@ export default function TeamDashboard() {
                     </div>
                     <motion.div
                       initial={{ height: 0 }}
-                      whileInView={{ height: index === 0 ? 150 : index === 1 ? 230 : 110 }}
+                      whileInView={{ height: index === 0 ? 180 : index === 1 ? 270 : 140 }}
                       viewport={{ once: true }}
                       transition={{ duration: 1.5, delay: 0.2 + (index * 0.1), ease: "circOut" }}
                       className="relative w-full rounded-2xl border border-white/20 flex flex-col items-center justify-start pt-12 shadow-2xl group-hover:-translate-y-2 transition-transform duration-500"
@@ -623,53 +626,55 @@ export default function TeamDashboard() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
           >
-          <div className="overflow-hidden rounded-3xl border border-[#00666B]/35 bg-[#003339]/65 shadow-xl shadow-black/30">
-            <div className="min-w-[700px]">
-              {/* Header */}
-              <div className="grid grid-cols-12 gap-2 sm:gap-4 bg-[#003339]/95 px-4 sm:px-6 py-4 text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.16em] text-[#F7F7F8]/65">
-                <div className="col-span-5 sm:col-span-4">Performer</div>
-                <div className="col-span-3 hidden sm:block">Team</div>
-                <div className="col-span-3 sm:col-span-2 text-right">Points</div>
-                <div className="col-span-2 hidden sm:block text-right">Growth</div>
-                <div className="col-span-4 sm:col-span-1 text-right">Rank</div>
-              </div>
-              
-              {/* Rows */}
-              <div className="divide-y divide-[#00666B]/35">
-                {leaderboardRows.map((row) => (
-                  <div key={`${row.team}-${row.name}`} className="group/row relative grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-6 py-4 items-center transition-colors hover:bg-[#39A8AD]/10 overflow-hidden">
-                    {row.rank <= 3 && <GlimmerOverlay />}
-                    
-                    <div className="col-span-5 sm:col-span-4 relative z-10">
-                      <p className="font-semibold text-sm sm:text-base text-[#F7F7F8] truncate">{row.name}</p>
-                      <p className="text-[10px] sm:text-xs text-[#73FFFF]/45 truncate">{row.role}</p>
-                    </div>
-                    <div className="col-span-3 hidden sm:block relative z-10 text-sm font-medium text-[#F7F7F8]/80 truncate">
-                      {row.team}
-                    </div>
-                    <div className="col-span-3 sm:col-span-2 relative z-10 text-right text-xs sm:text-sm font-bold tabular-nums text-[#F7F7F8]">
-                      {row.score.toLocaleString()}
-                    </div>
-                    <div className="col-span-2 hidden sm:block relative z-10 text-right text-sm font-semibold text-[#73FFFF]/85">
-                      +{row.growth}
-                    </div>
-                    <div className="col-span-4 sm:col-span-1 relative z-10 flex justify-end">
-                      <span 
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-bold transition-all"
-                        style={{ 
-                          borderColor: row.rank <= 3 ? `${rankColors[row.rank as keyof typeof rankColors]}66` : 'rgba(0,102,107,0.45)',
-                          backgroundColor: row.rank <= 1 ? `${rankColors[1]}33` : row.rank === 2 ? `${rankColors[2]}33` : row.rank === 3 ? `${rankColors[3]}33` : 'rgba(0,102,107,0.8)',
-                          color: row.rank <= 3 ? rankColors[row.rank as keyof typeof rankColors] : 'rgba(247,247,248,0.65)'
-                        }}
-                      >
-                        {row.rank}
-                      </span>
-                    </div>
+            <div className="rounded-3xl border border-[#00666B]/35 bg-[#003339]/65 shadow-xl shadow-black/30 overflow-hidden">
+              <div className="overflow-x-auto custom-scrollbar">
+                <div className="min-w-[750px]">
+                  {/* Header */}
+                  <div className="grid grid-cols-12 gap-2 sm:gap-4 bg-[#003339]/95 px-4 sm:px-6 py-4 text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.16em] text-[#F7F7F8]/65">
+                    <div className="col-span-4">Performer</div>
+                    <div className="col-span-3">Team</div>
+                    <div className="col-span-2 text-right">Points</div>
+                    <div className="col-span-2 text-right">Growth</div>
+                    <div className="col-span-1 text-right">Rank</div>
                   </div>
-                ))}
+                  
+                  {/* Rows */}
+                  <div className="divide-y divide-[#00666B]/35">
+                    {leaderboardRows.map((row) => (
+                      <div key={`${row.team}-${row.name}`} className="group/row relative grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-6 py-4 items-center transition-colors hover:bg-[#39A8AD]/10 overflow-hidden">
+                        {row.rank <= 3 && <GlimmerOverlay />}
+                        
+                        <div className="col-span-4 relative z-10">
+                          <p className="font-semibold text-sm sm:text-base text-[#F7F7F8] truncate">{row.name}</p>
+                          <p className="text-[10px] sm:text-xs text-[#73FFFF]/45 truncate">{row.role}</p>
+                        </div>
+                        <div className="col-span-3 relative z-10 text-sm font-medium text-[#F7F7F8]/80 truncate">
+                          {row.team}
+                        </div>
+                        <div className="col-span-2 relative z-10 text-right text-xs sm:text-sm font-bold tabular-nums text-[#F7F7F8]">
+                          {row.score.toLocaleString()}
+                        </div>
+                        <div className="col-span-2 relative z-10 text-right text-sm font-semibold text-[#73FFFF]/85">
+                          +{row.growth}
+                        </div>
+                        <div className="col-span-1 relative z-10 flex justify-end">
+                          <span 
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-bold transition-all"
+                            style={{ 
+                              borderColor: row.rank <= 3 ? `${rankColors[row.rank as keyof typeof rankColors]}66` : 'rgba(0,102,107,0.45)',
+                              backgroundColor: row.rank <= 1 ? `${rankColors[1]}33` : row.rank === 2 ? `${rankColors[2]}33` : row.rank === 3 ? `${rankColors[3]}33` : 'rgba(0,102,107,0.8)',
+                              color: row.rank <= 3 ? rankColors[row.rank as keyof typeof rankColors] : 'rgba(247,247,248,0.65)'
+                            }}
+                          >
+                            {row.rank}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
           </motion.section>
 
           <motion.section
