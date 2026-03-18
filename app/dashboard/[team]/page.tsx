@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/purity */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -57,6 +57,117 @@ function GlimmerOverlay() {
         className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 opacity-30"
         style={{ animation: 'glimmer 3s infinite linear' }}
       />
+    </div>
+  );
+}
+
+function CompetitiveLoader({ onFinish }: { onFinish: () => void }) {
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    const sequence = [
+      { delay: 800, next: 1 },  // READY
+      { delay: 800, next: 2 },  // EXCHANGE
+      { delay: 800, next: 3 },  // MARATHON
+      { delay: 1000, next: 4 }, // GO!
+    ];
+
+    let timer: NodeJS.Timeout;
+    const runSequence = (idx: number) => {
+      if (idx >= sequence.length) {
+        onFinish();
+        return;
+      }
+      timer = setTimeout(() => {
+        setPhase(sequence[idx].next);
+        runSequence(idx + 1);
+      }, sequence[idx].delay);
+    };
+
+    runSequence(0);
+    return () => clearTimeout(timer);
+  }, [onFinish]);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#051B1D] overflow-hidden">
+      {/* Speed Lines Background */}
+      <div className="absolute inset-0 opacity-20">
+        {[...Array(20)].map((_, i) => (
+          <motion.div
+            key={i}
+            initial={{ x: "-100%" }}
+            animate={{ x: "200%" }}
+            transition={{ 
+              duration: 0.5, 
+              repeat: Infinity, 
+              delay: i * 0.1, 
+              ease: "linear" 
+            }}
+            className="absolute h-px w-64 bg-linear-to-r from-transparent via-[#73FFFF] to-transparent"
+            style={{ top: `${(i * 5)}%`, opacity: Math.random() }}
+          />
+        ))}
+      </div>
+
+      <AnimatePresence mode="wait">
+        {phase === 0 && (
+          <motion.div
+            key="ready"
+            initial={{ scale: 0.5, opacity: 0, filter: "blur(10px)" }}
+            animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+            exit={{ scale: 1.5, opacity: 0, filter: "blur(20px)" }}
+            className="relative"
+          >
+             <h1 className="text-6xl sm:text-9xl font-black text-white italic tracking-tighter">
+              READY?
+            </h1>
+          </motion.div>
+        )}
+
+        {phase === 1 && (
+          <motion.div
+            key="exchange"
+            initial={{ x: "-100vw", skewX: -20 }}
+            animate={{ x: 0, skewX: 0 }}
+            exit={{ x: "100vw", skewX: 20 }}
+            transition={{ type: "spring", damping: 12 }}
+            className="relative"
+          >
+             <h1 className="text-7xl sm:text-[12rem] font-black text-[#FF1744] italic tracking-tight drop-shadow-[0_0_30px_rgba(255,23,68,0.5)]">
+              EXCHANGE
+            </h1>
+          </motion.div>
+        )}
+
+        {phase === 2 && (
+          <motion.div
+            key="marathon"
+            initial={{ x: "100vw", skewX: 20 }}
+            animate={{ x: 0, skewX: 0 }}
+            exit={{ scale: 2, opacity: 0, filter: "blur(20px)" }}
+            transition={{ type: "spring", damping: 12 }}
+            className="relative"
+          >
+             <h1 className="text-7xl sm:text-[12rem] font-black text-[#00E5FF] italic tracking-tight drop-shadow-[0_0_30px_rgba(0,229,255,0.5)]">
+              MARATHON
+            </h1>
+          </motion.div>
+        )}
+
+        {phase === 3 && (
+          <motion.div
+            key="go"
+            initial={{ scale: 0, rotate: -10 }}
+            animate={{ scale: [1, 1.2, 1], rotate: 0 }}
+            transition={{ duration: 0.3 }}
+            className="relative"
+          >
+             <h1 className="text-9xl sm:text-[15rem] font-black text-white italic tracking-tighter">
+              GO!
+            </h1>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -486,6 +597,7 @@ export default function TeamDashboard() {
   const teamData = teamDataMap[teamParam] || teamDataMap.b2b;
   const [selectedMiniTeam, setSelectedMiniTeam] = useState<MiniTeamData | null>(null);
   const [hoveredBar, setHoveredBar] = useState<{ chart: number; bar: number } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const leaderTeam = teamData.miniTeams[0];
   const secondTeam = teamData.miniTeams[1];
@@ -544,11 +656,17 @@ export default function TeamDashboard() {
   return (
     <div className="min-h-screen bg-linear-to-br from-[#051B1D] via-[#003339] to-[#051B1D]">
       <style>{glimmerAnimation}</style>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8 }}
-      >
+      
+      <AnimatePresence mode="wait">
+        {isLoading ? (
+          <CompetitiveLoader key="loader" onFinish={() => setIsLoading(false)} />
+        ) : (
+          <motion.div
+            key="dashboard"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+          >
         <nav className="sticky top-0 z-40 border-b border-white/5 bg-[#051C1E]/80 backdrop-blur-md">
           <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-3 sm:px-8 py-4 sm:py-6">
             <div className="flex items-center gap-3 sm:gap-6">
@@ -902,6 +1020,8 @@ export default function TeamDashboard() {
           </motion.section>
         </main>
       </motion.div>
+      )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {selectedMiniTeam && (
