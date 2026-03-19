@@ -1,7 +1,8 @@
 /* eslint-disable react-hooks/purity */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import * as htmlToImage from 'html-to-image';
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -591,6 +592,288 @@ function PerformerModal({
   );
 }
 
+function WrappedExperience({ 
+  onClose, 
+  stats,
+  teamColor 
+}: { 
+  onClose: () => void;
+  stats: any;
+  teamColor: string;
+}) {
+  const [currentCard, setCurrentCard] = useState(0);
+  const [isSharing, setIsSharing] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const totalCards = 4;
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!cardRef.current || isSharing) return;
+    
+    setIsSharing(true);
+    try {
+      // Small delay to ensure any transient animations settle
+      await new Promise(r => setTimeout(r, 100));
+      
+      const dataUrl = await htmlToImage.toPng(cardRef.current, {
+        quality: 0.95,
+        backgroundColor: '#051B1D',
+        pixelRatio: 2,
+        skipFonts: false,
+      });
+
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], 'igv-marathon-wrap.png', { type: 'image/png' });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'iGV Hackathon Hall of Fame',
+          text: 'Check out my performance in the Exchange Marathon! 🏃‍♂️🏆',
+        });
+      } else {
+        // Fallback: Download and open WhatsApp
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'igv-marathon-badge.png';
+        link.click();
+        
+        const shareText = encodeURIComponent("Check out my performance in the Exchange Marathon! 🏃‍♂️🏆");
+        window.open(`https://wa.me/?text=${shareText}`, '_blank');
+      }
+    } catch (err) {
+      console.error('Share failed:', err);
+      alert("Sharing failed. Please try downloading the flyer.");
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (currentCard < totalCards - 1) {
+        setCurrentCard(prev => prev + 1);
+      } else {
+        onClose();
+      }
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [currentCard, onClose]);
+
+  const cards = [
+    {
+      id: "intro",
+      bg: "from-[#051B1D] via-[#004D40] to-[#051B1D]",
+      content: (
+        <div className="flex flex-col items-center justify-center h-full text-center px-6">
+          <motion.div
+             initial={{ scale: 0.8, opacity: 0, rotate: -10 }}
+             animate={{ scale: 1, opacity: 1, rotate: 0 }}
+             className="w-48 h-48 sm:w-64 sm:h-64 rounded-full bg-linear-to-br from-[#73FFFF]/20 to-transparent flex items-center justify-center border-4 border-[#73FFFF]/30 shadow-[0_0_50px_rgba(115,255,255,0.2)] mb-12 relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-[#004D40]/20 backdrop-blur-md" />
+            <img src="/mascot.png" alt="Mascot" className="w-full h-full object-cover relative z-10" />
+          </motion.div>
+          <motion.p 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-[10px] font-black uppercase tracking-[0.6em] text-[#73FFFF]/60 mb-4"
+          >
+            WEEK 12 RECAP
+          </motion.p>
+          <motion.h1 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="text-4xl sm:text-6xl font-black text-white italic tracking-tighter leading-none"
+          >
+            iGV HACKATHON <br />
+            <span className="text-[#73FFFF]">HALL OF FAME</span>
+          </motion.h1>
+        </div>
+      )
+    },
+    {
+      id: "best-team",
+      bg: "from-[#1A237E] via-[#311B92] to-[#1A237E]",
+      content: (
+        <div className="flex flex-col items-center justify-center h-full text-center px-6">
+          <motion.div 
+            initial={{ scale: 2, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="text-[12rem] font-black text-white/5 absolute -top-10 left-1/2 -translate-x-1/2 select-none"
+          >
+            TITAN
+          </motion.div>
+          <motion.div
+             initial={{ y: 50, opacity: 0 }}
+             animate={{ y: 0, opacity: 1 }}
+             className="relative z-10"
+          >
+            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-white/40 mb-6">BEST PERFORMING TEAM</p>
+            <h2 className="text-6xl sm:text-8xl font-black text-white italic tracking-tighter mb-4">{stats.topTeam.name}</h2>
+            <div className="flex items-center justify-center gap-8 mt-12">
+              <div className="text-center">
+                <p className="text-4xl font-black text-[#FFD700]">{stats.topTeam.points}</p>
+                <p className="text-[8px] font-bold uppercase tracking-widest text-white/30">POINTS</p>
+              </div>
+              <div className="h-10 w-px bg-white/10" />
+              <div className="text-center">
+                <p className="text-4xl font-black text-[#00E676]">+{stats.topTeam.growth}%</p>
+                <p className="text-[8px] font-bold uppercase tracking-widest text-white/30">GROWTH</p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )
+    },
+    {
+      id: "global-mvp",
+      bg: "from-[#4A148C] via-[#311B92] to-[#4A148C]",
+      content: (
+        <div className="flex flex-col items-center justify-center h-full text-center px-6">
+          <motion.div 
+            initial={{ rotate: -90, opacity: 0 }}
+            animate={{ rotate: 0, opacity: 1 }}
+            className="absolute -right-20 top-1/2 -translate-y-1/2 text-[10rem] font-black text-white/5 select-none"
+          >
+            ELITE
+          </motion.div>
+          <motion.div
+             initial={{ x: -100, opacity: 0 }}
+             animate={{ x: 0, opacity: 1 }}
+             className="relative z-10"
+          >
+            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-white/40 mb-8">GLOBAL MVP</p>
+            <div className="relative inline-block mb-12">
+              <div className="w-40 h-40 sm:w-56 sm:h-56 rounded-4xl bg-linear-to-br from-[#FF1744] to-[#C41C00] flex items-center justify-center text-6xl font-black text-white shadow-2xl skew-x-6">
+                {stats.globalMvp.avatar}
+              </div>
+              <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-[#FFD700] rounded-2xl flex items-center justify-center text-2xl shadow-xl transform rotate-12">
+                👑
+              </div>
+            </div>
+            <h2 className="text-5xl sm:text-7xl font-black text-white italic tracking-tighter">{stats.globalMvp.name}</h2>
+            <p className="text-lg font-bold text-[#FF1744] uppercase tracking-[0.2em] mt-2">{stats.globalMvp.role}</p>
+          </motion.div>
+        </div>
+      )
+    },
+    {
+      id: "squad-ace",
+      bg: `from-[#000000] via-[#212121] to-[#000000]`,
+      content: (
+        <div className="flex flex-col items-center justify-center h-full text-center px-6">
+          <motion.div 
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="absolute inset-0 flex items-center justify-center"
+          >
+             <div className="w-[150%] h-[150%] bg-radial from-white/10 to-transparent opacity-20" />
+          </motion.div>
+          <motion.div
+             initial={{ y: 100, opacity: 0 }}
+             animate={{ y: 0, opacity: 1 }}
+             className="relative z-10"
+          >
+            <p className="text-[10px] font-black uppercase tracking-[0.5em] text-[#73FFFF]/40 mb-10">{stats.currentTeamName} SQUAD ACE</p>
+            <div className="w-32 h-32 sm:w-44 sm:h-44 rounded-full border-2 border-[#73FFFF]/30 p-2 mb-10 mx-auto">
+              <div className="w-full h-full rounded-full bg-linear-to-br from-[#73FFFF]/20 to-transparent flex items-center justify-center text-4xl font-black text-white glass-premium">
+                {stats.teamAce.avatar}
+              </div>
+            </div>
+            <h2 className="text-6xl sm:text-8xl font-black text-[#73FFFF] italic tracking-tighter mb-4">{stats.teamAce.name}</h2>
+            <p className="text-2xl font-black text-white italic tracking-widest">{stats.teamAce.score} XP</p>
+            <div className="mt-16 flex gap-4 justify-center">
+               <button 
+                onClick={onClose}
+                className="px-10 py-4 bg-white text-black font-black uppercase text-xs tracking-widest rounded-full hover:scale-105 active:scale-95 transition-all shadow-xl"
+               >
+                 Back to Podium
+               </button>
+            </div>
+          </motion.div>
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[120] bg-black overflow-hidden flex flex-col">
+      {/* Progress Bars */}
+      <div className="absolute top-0 left-0 right-0 z-[130] flex gap-1.5 p-4 sm:p-6 px-10">
+        {cards.map((_, i) => (
+          <div key={i} className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+             <motion.div 
+               initial={{ width: 0 }}
+               animate={{ width: i < currentCard ? "100%" : i === currentCard ? "100%" : "0%" }}
+               transition={{ duration: i === currentCard ? 6 : 0, ease: "linear" }}
+               className="h-full bg-white"
+             />
+          </div>
+        ))}
+      </div>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+           key={cards[currentCard].id}
+           initial={{ x: 300, opacity: 0, scale: 0.9 }}
+           animate={{ x: 0, opacity: 1, scale: 1 }}
+           exit={{ x: -300, opacity: 0, scale: 0.9 }}
+           transition={{ type: "spring", damping: 20, stiffness: 100 }}
+           className={`relative w-full h-full bg-linear-to-br ${cards[currentCard].bg} flex flex-col items-center justify-center overflow-hidden`}
+           onClick={() => {
+             if (currentCard < totalCards - 1) setCurrentCard(prev => prev + 1);
+             else onClose();
+           }}
+        >
+          <div ref={cardRef} className="w-full h-full flex flex-col items-center justify-center">
+            {cards[currentCard].content}
+          </div>
+
+          {/* Share Button Overlay */}
+          <div className="absolute bottom-12 left-0 right-0 z-50 flex justify-center px-6 pointer-events-none">
+             <button
+                onClick={handleShare}
+                disabled={isSharing}
+                className="pointer-events-auto flex items-center gap-3 px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-white/20 rounded-2xl text-white font-black uppercase text-xs tracking-[0.2em] transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+             >
+               {isSharing ? (
+                 <>
+                   <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                   Processing...
+                 </>
+               ) : (
+                 <>
+                   <span>🚀</span>
+                   Share Flyer
+                 </>
+               )}
+             </button>
+          </div>
+          
+          {/* Navigation Hints */}
+          <div className="absolute inset-y-0 left-0 w-1/4 z-20 cursor-w-resize" onClick={(e) => {
+            e.stopPropagation();
+            if (currentCard > 0) setCurrentCard(prev => prev - 1);
+          }} />
+          <div className="absolute inset-y-0 right-0 w-1/4 z-20 cursor-e-resize" />
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Close Button */}
+      <button 
+        onClick={onClose}
+        className="absolute top-12 right-6 z-[140] w-12 h-12 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/40 text-white transition-all backdrop-blur-md"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 export default function TeamDashboard() {
   const params = useParams();
   const teamParam = (params?.team as string)?.toLowerCase() || "b2b";
@@ -598,6 +881,7 @@ export default function TeamDashboard() {
   const [selectedMiniTeam, setSelectedMiniTeam] = useState<MiniTeamData | null>(null);
   const [hoveredBar, setHoveredBar] = useState<{ chart: number; bar: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showWrapped, setShowWrapped] = useState(false);
 
   const leaderTeam = teamData.miniTeams[0];
   const secondTeam = teamData.miniTeams[1];
@@ -608,6 +892,14 @@ export default function TeamDashboard() {
     .map((p, i) => ({ ...p, rank: i + 1, growth: Math.floor(Math.random() * 50) + 10 }));
 
   const podiumVisualOrder = [leaderboardRows[1], leaderboardRows[0], leaderboardRows[2]].filter(Boolean);
+
+  // Stats for Wrapped
+  const wrappedStats = {
+    topTeam: { name: "Marcom Stars", points: 28450, growth: 22 },
+    globalMvp: leaderboardRows[0],
+    teamAce: leaderTeam.performers[0],
+    currentTeamName: teamData.name
+  };
 
   const chartDefs = [
     {
@@ -687,6 +979,13 @@ export default function TeamDashboard() {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-4">
+              <button
+                onClick={() => setShowWrapped(true)}
+                className="group flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-full bg-linear-to-r from-[#FF1744] to-[#73FFFF] text-white transition-all hover:scale-105 active:scale-95 shadow-lg"
+              >
+                <span className="group-hover:rotate-12 transition-transform">🏆</span>
+                <span>Recap</span>
+              </button>
               <Link
                 href="/"
                 className="group flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-full glass border border-white/10 hover:bg-white/5 transition-all"
@@ -1041,6 +1340,16 @@ export default function TeamDashboard() {
               <PerformerModal team={selectedMiniTeam} onClose={() => setSelectedMiniTeam(null)} teamColor={teamColor} />
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showWrapped && (
+          <WrappedExperience 
+            onClose={() => setShowWrapped(false)} 
+            stats={wrappedStats}
+            teamColor={teamColor}
+          />
         )}
       </AnimatePresence>
     </div>
