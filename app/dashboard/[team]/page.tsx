@@ -6,6 +6,7 @@ import * as htmlToImage from 'html-to-image';
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import MascotAvatar from "@/components/MascotAvatar";
 
 interface Performer {
   name: string;
@@ -90,25 +91,27 @@ function CompetitiveLoader({ onFinish }: { onFinish: () => void }) {
   }, [onFinish]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#051B1D] overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#051B1D] overflow-hidden">
       {/* Speed Lines Background */}
-      <div className="absolute inset-0 opacity-20">
-        {[...Array(20)].map((_, i) => (
+      <div className="absolute inset-0 opacity-30">
+        {[...Array(25)].map((_, i) => (
           <motion.div
             key={i}
             initial={{ x: "-100%" }}
-            animate={{ x: "200%" }}
+            animate={{ x: "250%" }}
             transition={{ 
-              duration: 0.5, 
+              duration: 0.4, 
               repeat: Infinity, 
-              delay: i * 0.1, 
+              delay: i * 0.08, 
               ease: "linear" 
             }}
-            className="absolute h-px w-64 bg-linear-to-r from-transparent via-[#73FFFF] to-transparent"
-            style={{ top: `${(i * 5)}%`, opacity: Math.random() }}
+            className="absolute h-[2px] w-[500px] bg-linear-to-r from-transparent via-[#73FFFF]/40 to-transparent"
+            style={{ top: `${(i * 4)}%`, opacity: Math.random() }}
           />
         ))}
       </div>
+
+      {/* Mascot Section Removed */}
 
       <AnimatePresence mode="wait">
         {phase === 0 && (
@@ -128,13 +131,13 @@ function CompetitiveLoader({ onFinish }: { onFinish: () => void }) {
         {phase === 1 && (
           <motion.div
             key="exchange"
-            initial={{ x: "-100vw", skewX: -20 }}
-            animate={{ x: 0, skewX: 0 }}
-            exit={{ x: "100vw", skewX: 20 }}
-            transition={{ type: "spring", damping: 12 }}
+            initial={{ x: "-100vw", skewX: -20, opacity: 0 }}
+            animate={{ x: 0, skewX: 0, opacity: 1 }}
+            exit={{ x: "100vw", skewX: 20, opacity: 0 }}
+            transition={{ type: "spring", damping: 12, stiffness: 100 }}
             className="relative"
           >
-             <h1 className="text-7xl sm:text-[12rem] font-black text-[#FF1744] italic tracking-tight drop-shadow-[0_0_30px_rgba(255,23,68,0.5)]">
+             <h1 className="text-7xl sm:text-[12rem] font-black text-[#FF1744] italic tracking-tight drop-shadow-[0_0_50px_rgba(255,23,68,0.6)]">
               EXCHANGE
             </h1>
           </motion.div>
@@ -143,13 +146,13 @@ function CompetitiveLoader({ onFinish }: { onFinish: () => void }) {
         {phase === 2 && (
           <motion.div
             key="marathon"
-            initial={{ x: "100vw", skewX: 20 }}
-            animate={{ x: 0, skewX: 0 }}
-            exit={{ scale: 2, opacity: 0, filter: "blur(20px)" }}
-            transition={{ type: "spring", damping: 12 }}
+            initial={{ x: "100vw", skewX: 20, opacity: 0 }}
+            animate={{ x: 0, skewX: 0, opacity: 1 }}
+            exit={{ scale: 3, opacity: 0, filter: "blur(40px)" }}
+            transition={{ type: "spring", damping: 12, stiffness: 100 }}
             className="relative"
           >
-             <h1 className="text-7xl sm:text-[12rem] font-black text-[#00E5FF] italic tracking-tight drop-shadow-[0_0_30px_rgba(0,229,255,0.5)]">
+             <h1 className="text-7xl sm:text-[12rem] font-black text-[#73FFFF] italic tracking-tight drop-shadow-[0_0_50px_rgba(115,255,255,0.6)]">
               MARATHON
             </h1>
           </motion.div>
@@ -158,12 +161,16 @@ function CompetitiveLoader({ onFinish }: { onFinish: () => void }) {
         {phase === 3 && (
           <motion.div
             key="go"
-            initial={{ scale: 0, rotate: -10 }}
-            animate={{ scale: [1, 1.2, 1], rotate: 0 }}
-            transition={{ duration: 0.3 }}
+            initial={{ scale: 0, rotate: -45, opacity: 0 }}
+            animate={{ scale: [1, 1.2, 1], rotate: 0, opacity: 1 }}
+            transition={{ 
+              scale: { duration: 0.4, ease: "easeOut" },
+              rotate: { type: "spring", damping: 10 },
+              opacity: { duration: 0.2 }
+            }}
             className="relative"
           >
-             <h1 className="text-9xl sm:text-[15rem] font-black text-white italic tracking-tighter">
+             <h1 className="text-[10rem] sm:text-[20rem] font-black text-white italic tracking-tighter drop-shadow-[0_0_80px_rgba(255,255,255,0.8)]">
               GO!
             </h1>
           </motion.div>
@@ -598,7 +605,12 @@ function WrappedExperience({
   teamColor 
 }: { 
   onClose: () => void;
-  stats: any;
+  stats: {
+    topTeam: { name: string; points: number; growth: number };
+    globalMvp: { name: string; avatar: string; role: string };
+    currentTeamName: string;
+    teamAce: { name: string; avatar: string; score: number };
+  };
   teamColor: string;
 }) {
   const [currentCard, setCurrentCard] = useState(0);
@@ -670,10 +682,9 @@ function WrappedExperience({
           <motion.div
              initial={{ scale: 0.8, opacity: 0, rotate: -10 }}
              animate={{ scale: 1, opacity: 1, rotate: 0 }}
-             className="w-48 h-48 sm:w-64 sm:h-64 rounded-full bg-linear-to-br from-[#73FFFF]/20 to-transparent flex items-center justify-center border-4 border-[#73FFFF]/30 shadow-[0_0_50px_rgba(115,255,255,0.2)] mb-12 relative overflow-hidden"
+             className="w-48 h-48 sm:w-64 sm:h-64 mb-12 relative flex items-center justify-center"
           >
-            <div className="absolute inset-0 bg-[#004D40]/20 backdrop-blur-md" />
-            <img src="/mascot.png" alt="Mascot" className="w-full h-full object-cover relative z-10" />
+            <MascotAvatar type="laptop" size={256} />
           </motion.div>
           <motion.p 
             initial={{ y: 20, opacity: 0 }}
@@ -999,29 +1010,54 @@ export default function TeamDashboard() {
         </nav>
 
         <main className="mx-auto w-[94%] sm:w-[92%] space-y-8 sm:space-y-12 py-8 sm:py-16 lg:w-[80%]">
-          <header className="relative py-8 sm:py-12 text-center overflow-hidden rounded-2xl sm:rounded-3xl glass-premium border-white/5 px-4">
-            <div className="absolute inset-0 opacity-10" style={{ background: `radial-gradient(circle at 50% 50%, ${teamColor}, transparent 70%)` }} />
-            <div className="relative z-10">
-              <h2 className="text-3xl md:text-7xl font-black tracking-tighter text-[#F7F7F8] mb-4 sm:mb-6 leading-tight">
+          <header className="relative pt-12 pb-16 sm:py-20 text-center rounded-[2.5rem] sm:rounded-[4rem] glass-premium border border-white/5 px-6 sm:px-12 flex flex-col items-center justify-center shadow-2xl">
+            {/* Background Gradient */}
+            <div className="absolute inset-0 rounded-[2.5rem] sm:rounded-[4rem] overflow-hidden pointer-events-none">
+              <div className="absolute inset-0 opacity-15" style={{ background: `radial-gradient(circle at 50% 50%, ${teamColor}, transparent 70%)` }} />
+            </div>
+            
+            <div className="relative z-10 text-center flex-1 w-full max-w-4xl mx-auto">
+              <h2 className="text-4xl md:text-5xl lg:text-7xl font-black tracking-tighter text-[#F7F7F8] mb-8 sm:mb-12 leading-tight uppercase">
                 THE <span style={{ color: teamColor }}>{teamData.name}</span> MARATHON
               </h2>
-              <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8">
-                <div className="flex flex-col items-center">
-                  <span className="text-xl sm:text-2xl font-black text-white">{teamData.totalPoints.toLocaleString()}</span>
-                  <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest text-white/30">Total Team XP</span>
+              <div className="flex flex-wrap items-center justify-center gap-10 sm:gap-20">
+                <div className="flex flex-col items-center text-center">
+                  <span className="text-3xl md:text-4xl lg:text-5xl font-black text-white">{teamData.totalPoints.toLocaleString()}</span>
+                  <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.25em] text-white/40 mt-2">Total Team XP</span>
                 </div>
-                <div className="h-6 sm:h-8 w-px bg-white/10 hidden xs:block" />
-                <div className="flex flex-col items-center">
-                  <span className="text-xl sm:text-2xl font-black text-[var(--level-up)]">+{teamData.weeklyGrowth}%</span>
-                  <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest text-white/30">Weekly Surge</span>
+                <div className="flex flex-col items-center text-center">
+                  <span className="text-3xl md:text-4xl lg:text-5xl font-black text-[var(--level-up)]">+{teamData.weeklyGrowth}%</span>
+                  <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.25em] text-white/40 mt-2">Weekly Surge</span>
                 </div>
-                <div className="h-6 sm:h-8 w-px bg-white/10 hidden xs:block" />
-                <div className="flex flex-col items-center">
-                  <span className="text-xl sm:text-2xl font-black text-[var(--xp-gold)]">{teamData.completedActions}</span>
-                  <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest text-white/30">Milestones Hit</span>
+                <div className="flex flex-col items-center text-center">
+                  <span className="text-3xl md:text-4xl lg:text-5xl font-black text-[var(--xp-gold)]">{teamData.completedActions}</span>
+                  <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.25em] text-white/40 mt-2">Milestones Hit</span>
                 </div>
               </div>
             </div>
+
+            {/* Mascot positioned on the right, overflowing bottom */}
+            <motion.div 
+              initial={{ x: 50, y: 0, opacity: 0 }}
+              animate={{ x: 0, y: [0, -12, 0], opacity: 1 }}
+              transition={{ 
+                x: { duration: 1, delay: 0.3, ease: "easeOut" },
+                opacity: { duration: 1, delay: 0.3 },
+                y: { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1.3 } 
+              }}
+              className="absolute z-20 w-28 sm:w-48 lg:w-[520px] right-2 md:right-8 lg:-right-34 -bottom-4 sm:-bottom-8 lg:-bottom-44 pointer-events-none hidden sm:block"
+            >
+              <img 
+                src="/mascot/laptop.png" 
+                alt="Team Mascot" 
+                className="w-full h-auto object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+              />
+              <motion.div 
+                animate={{ scale: [1, 1.1, 1], opacity: [0.1, 0.2, 0.1] }}
+                transition={{ duration: 4, repeat: Infinity }}
+                className="absolute inset-0 bg-radial from-[var(--xp-gold)] to-transparent blur-3xl -z-10"
+              />
+            </motion.div>
           </header>
 
           <motion.section 
@@ -1172,9 +1208,9 @@ export default function TeamDashboard() {
                     <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.22em] text-[#73FFFF]/45">{chart.subtitle}</p>
                     <h4 className="mt-1 text-base sm:text-lg font-bold text-[#F7F7F8]">{chart.title}</h4>
                     <div className="mt-8 space-y-8">
-                      {chart.entries?.map((entry: any) => {
+                      {chart.entries?.map((entry: { label: string; values: number[] }) => {
                         const total = entry.values.reduce((a: number, b: number) => a + b, 0);
-                        const maxRowTotal = Math.max(...(chart.entries || []).map((e: any) => e.values.reduce((a: number, b: number) => a + b, 0)));
+                        const maxRowTotal = Math.max(...(chart.entries || []).map((e: { values: number[] }) => e.values.reduce((a: number, b: number) => a + b, 0)));
                         return (
                           <div key={entry.label} className="group/row">
                             <div className="mb-3 flex items-center justify-between">
