@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# local cloud service account key files
+backend/*service-account*.json
+backend/exchangemarathon-*.json
+
 # vercel
 .vercel
 

@@ -9,17 +9,17 @@
   --dark-cyan: #003339;
 
   /* Team Specific Colors */
-  --b2b-color: #39a8ad;
-  --ir-color: #9c27b0;
-  --matching-color: #ff9800;
-  --marcom-color: #e91e63;
+  --igv-color: #5c6b77; /* 👈 Updated to Blue Slate Accent */
+  --igt-color: #4527a0;
+  --ogt-color: #0d47a1;
+  --mst-color: #ffcd00; /* 👈 MST also uses Yellow */
 
   /* Gamification Colors */
   --xp-gold: #ffd700;
   --level-up: #4caf50;
   --danger: #ff5252;
 
-  --background: var(--dark-teal-black);
+  --background: #192230; /* 👈 Updated to Slate Dark */
   --foreground: var(--light-gray);
   color-scheme: dark;
 }
@@ -32,9 +32,14 @@
 }
 
 body {
-  background: radial-gradient(circle at 20% 0%, color-mix(in oklab, var(--deep-teal) 35%, transparent), transparent 45%),
-    radial-gradient(circle at 85% 30%, color-mix(in oklab, var(--medium-teal) 30%, transparent), transparent 50%),
-    var(--background);
+  background-color: #192230;
+  background-image: 
+    linear-gradient(rgba(25, 34, 48, 0.65), rgba(25, 34, 48, 0.65)),
+    url('/bg.jpeg');
+  background-attachment: fixed;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   color: var(--foreground);
   font-family: var(--font-geist-sans);
   min-height: 100vh;

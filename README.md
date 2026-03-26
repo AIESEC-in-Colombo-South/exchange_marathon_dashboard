@@ -1,5 +1,25 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Backend (Google Sheets + Firebase)
+
+This repository now includes a separate backend service in [backend/README.md](backend/README.md).
+
+Quick start:
+
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+Then configure frontend env:
+
+```bash
+cp .env.example .env.local
+```
+
+Set `NEXT_PUBLIC_API_BASE_URL` to your backend URL (default `http://localhost:4000`).
+
 ## Getting Started
 
 First, run the development server:

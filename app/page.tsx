@@ -26,10 +26,10 @@ const functions: TeamCard[] = [
     name: "IGV",
     description: "Incoming Global Volunteer: Managing social impact projects for incoming exchange participants.",
     icon: "🏠",
-    color: "var(--b2b-color)",
+    color: "var(--igv-color)",
     squads: [
-      { id: "igv-ir", name: "IR Matching", href: "/dashboard/b2b" },
-      { id: "igv-b2b", name: "B2B", href: "/dashboard/b2b" }
+      { id: "igv-ops", name: "B2B", href: "/dashboard/igv_b2b" },
+      { id: "igv-ir", name: "IR Matching", href: "/dashboard/igv_ir" }
     ]
   },
   {
@@ -37,21 +37,10 @@ const functions: TeamCard[] = [
     name: "IGT",
     description: "Incoming Global Talent: Connecting global talent with local corporate opportunities.",
     icon: "💼",
-    color: "var(--ir-color)",
+    color: "var(--igt-color)",
     squads: [
-      { id: "igt-ir", name: "IR Matching", href: "/dashboard/ir" },
-      { id: "igt-b2b", name: "B2B", href: "/dashboard/ir" }
-    ]
-  },
-  {
-    id: "ogv",
-    name: "OGV",
-    description: "Outgoing Global Volunteer: Empowering local youth through global volunteering experiences.",
-    icon: "✈️",
-    color: "var(--matching-color)",
-    squads: [
-      { id: "ogv-ir", name: "IR Matching", href: "/dashboard/matching" },
-      { id: "ogv-b2b", name: "B2B", href: "/dashboard/matching" }
+      { id: "igt-ops", name: "Operations", href: "/dashboard/igt_ops" },
+      { id: "igt-ir", name: "IR Matching", href: "/dashboard/igt_ir" }
     ]
   },
   {
@@ -59,10 +48,21 @@ const functions: TeamCard[] = [
     name: "OGT",
     description: "Outgoing Global Talent: Facilitating professional growth through global internships.",
     icon: "🌍",
-    color: "var(--marcom-color)",
+    color: "var(--ogt-color)",
     squads: [
-      { id: "ogt-ir", name: "IR Matching", href: "/dashboard/marcom" },
-      { id: "ogt-b2b", name: "B2B", href: "/dashboard/marcom" }
+      { id: "ogt-ops", name: "Operations", href: "/dashboard/ogt_ops" },
+      { id: "ogt-ir", name: "IR Matching", href: "/dashboard/ogt_matching" }
+    ]
+  },
+  {
+    id: "mst",
+    name: "MST",
+    description: "Marketing & Strategy: Scaling the marathon through strategic outreach and growth.",
+    icon: "📈",
+    color: "var(--mst-color)",
+    squads: [
+      { id: "mst-members", name: "Members", href: "/dashboard/members" },
+      { id: "mst-tls", name: "TLs", href: "/dashboard/tls" }
     ]
   },
 ];
@@ -143,19 +143,25 @@ function SquadCard({
   );
 }
 
+import HexagonGrid from "@/components/HexagonGrid";
+
 export default function Home() {
   const [selectedFunction, setSelectedFunction] = useState<TeamCard | null>(null);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-linear-to-br from-[#051B1D] via-[#003339] to-[#051B1D]">
+    <div className="relative min-h-screen overflow-hidden bg-transparent">
+      <HexagonGrid />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#00666B]/15 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 right-1/4 w-96 h-96 bg-[#39A8AD]/15 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-1/2 w-96 h-96 bg-[#73FFFF]/10 rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#3d474e]/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 right-1/4 w-96 h-96 bg-[#ffcd00]/3 rounded-full blur-3xl" />
       </div>
 
       <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col items-center px-5 sm:px-8 lg:px-10">
-        <div className="relative flex w-full flex-col items-center justify-center pb-1 pt-10 sm:pt-12">
+        <div className="absolute top-8 left-8 flex items-center gap-3 pointer-events-none opacity-60">
+          <img src="/logo.png" alt="Xcend Logo" className="w-26 h-26 object-contain" />
+        </div>
+        
+        <div className="relative flex w-full flex-col items-center justify-center pb-1 pt-20 sm:pt-24">
           <div className="relative flex w-full max-w-5xl flex-col items-center">
             {/* Mascot layered above and sitting on card border */}
             <div className="pointer-events-none absolute left-0 z-20 hidden -translate-x-[52%] sm:block lg:-translate-x-[18%] -translate-y-39">
@@ -163,6 +169,7 @@ export default function Home() {
                 <MascotAvatar 
                   type="flag" 
                   size={530} 
+                  glowColor="#ffcd00"
                   className="scale-75 lg:scale-95 origin-bottom"
                 />
               )}
@@ -173,26 +180,25 @@ export default function Home() {
               layout
               className="relative z-10 mb-8 flex flex-col items-center text-center sm:mb-10"
             >
-              <div className="pulse-gold mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-1.5 backdrop-blur-md">
-                <div className="h-2 w-2 rounded-full bg-(--xp-gold) animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-(--xp-gold)">
-                  {selectedFunction ? `SELECT YOUR ${selectedFunction.name} SQUAD` : "Season 2026 Live Arena"}
+              <div className="mb-6 inline-flex items-center gap-3 rounded-lg border border-white/5 bg-white/5 px-6 py-2 backdrop-blur-md">
+                <div className="bg-[#ffcd00] px-2 py-0.5 rounded text-[9px] font-black text-black">LIVE</div>
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/60">
+                  {selectedFunction ? selectedFunction.name : "Season 2026 Live Arena"}
                 </span>
               </div>
 
-              {/* Main title */}
-              <div className="relative mb-4">
-                <h1 className="font-black tracking-tighter text-[#F7F7F8] flex flex-col items-center">
-                  <span className="pointer-events-none absolute top-1/2 z-0 w-[130%] -translate-y-1/2 select-none text-center text-[3.4rem] uppercase leading-none opacity-[0.16] sm:text-[5.2rem] md:text-[6.2rem] lg:text-[6.8rem] -translate-x-1/14">
-                    {selectedFunction ? selectedFunction.name : "EXCHANGE"}
-                  </span>
-                  <span className="relative z-10 translate-y-4 text-[2.6rem] uppercase leading-none tracking-tight text-white sm:translate-y-5 sm:text-[3.2rem] md:translate-y-6 md:text-[3.8rem] lg:translate-y-7 lg:text-[4.2rem]">
-                    {selectedFunction ? "SQUAD" : "MARATHON"}
-                  </span>
+              {/* Main title: READY? EXCHANGE GO! */}
+              <div className="relative mb-6">
+                <h1 className="font-black flex flex-col items-center italic">
+                  <span className="text-2xl sm:text-3xl text-white/30 tracking-[0.2em] mb-1">READY?</span>
+                  <span className="text-6xl sm:text-8xl md:text-9xl text-[#ffcd00] tracking-tight leading-none drop-shadow-[0_10px_30px_rgba(255,205,0,0.2)]">EXCHANGE</span>
+                  <span className="text-4xl sm:text-5xl text-white/60 tracking-[0.3em] mt-1">GO!</span>
                 </h1>
               </div>
 
-              <p className="max-w-2xl text-sm font-medium tracking-wide text-[#F7F7F8]/55 sm:text-base mt-2">
+              <div className="w-16 h-1 bg-[#ffcd00] mb-8" />
+
+              <p className="max-w-2xl text-sm font-medium tracking-wide text-[#F7F7F8]/55 sm:text-base">
                 {selectedFunction 
                   ? `Choose the specific ${selectedFunction.name} team you belong to below.`
                   : "Level up your performance. Dominate the leaderboard."}
@@ -233,7 +239,8 @@ export default function Home() {
                     <MascotAvatar 
                       type="standing" 
                       size={1200} 
-                      className="drop-shadow-[0_20px_80px_rgba(115,255,255,0.15)] origin-center"
+                      glowColor="#ffcd00"
+                      className="drop-shadow-[0_20px_80px_rgba(255,205,0,0.1)] origin-center"
                     />
                   </div>
 
@@ -264,6 +271,7 @@ export default function Home() {
 
 
       </main>
+
     </div>
   );
 }

@@ -7,12 +7,14 @@ interface MascotAvatarProps {
   type?: "laptop" | "flag" | "standing";
   size?: number;
   className?: string;
+  glowColor?: string; // 👈 Added for theme customization
 }
 
 export default function MascotAvatar({
   type = "standing",
   size = 300,
   className = "",
+  glowColor = "#73FFFF", // Default to original teal
 }: MascotAvatarProps) {
   const imgSrc = `/mascot/${type}.png`;
 
@@ -66,11 +68,15 @@ export default function MascotAvatar({
         <img
           src={imgSrc}
           alt={`Mascot - ${type}`}
-          className="h-full w-full object-contain drop-shadow-[0_20px_50px_rgba(115,255,255,0.2)]"
+          className="h-full w-full object-contain transition-all duration-700"
+          style={{ filter: `drop-shadow(0 20px 50px ${glowColor}33)` }}
         />
       </motion.div>
 
-      <div className="pointer-events-none absolute inset-0 -z-10 rounded-full bg-radial from-[#73FFFF]/20 to-transparent blur-3xl opacity-30" />
+      <div 
+        className="pointer-events-none absolute inset-0 -z-10 rounded-full blur-3xl opacity-30 transition-all duration-700" 
+        style={{ background: `radial-gradient(circle, ${glowColor}33 0%, transparent 70%)` }}
+      />
     </div>
   );
 }

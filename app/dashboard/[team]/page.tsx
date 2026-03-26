@@ -7,8 +7,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import MascotAvatar from "@/components/MascotAvatar";
+import PawPrints from "@/components/PawPrints";
+import { supabase } from "@/lib/supabase";
 
 interface Performer {
+  email: string; // 👈 Added unique identifier
   name: string;
   role: string;
   score: number;
@@ -21,12 +24,14 @@ interface Performer {
 }
 
 interface MiniTeamData {
+  slug?: string; // 👈 Added for display
   name: string;
   rank: number;
   points: number;
   growth: number;
   icon: string;
   performers: Performer[];
+  allPerformers?: Performer[];
 }
 
 interface TeamData {
@@ -37,7 +42,20 @@ interface TeamData {
   totalGrowth: number;
   completedActions: number;
   weeklyGrowth: number;
+  asOfDate?: string;
+  syncInfo?: {
+    lastSyncTime: string;
+    nextSyncTime: string;
+    intervalMinutes: number;
+  };
 }
+
+interface DashboardApiResponse {
+  ok: boolean;
+  data?: TeamData;
+}
+
+const LIVE_REFRESH_MS = 60_000;
 
 const rankColors = {
   1: "#FFD700", // Gold
@@ -63,23 +81,88 @@ function GlimmerOverlay() {
   );
 }
 
-function CompetitiveLoader({ onFinish }: { onFinish: () => void }) {
+function SyncCountdown({ nextSyncTime, teamColor }: { nextSyncTime?: string; teamColor: string }) {
+  const [timeLeft, setTimeLeft] = useState<string>("--:--");
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    if (!nextSyncTime) return;
+
+    const updateTimer = () => {
+      const now = new Date().getTime();
+      const target = new Date(nextSyncTime).getTime();
+      const diff = target - now;
+
+      if (diff <= 0) {
+        setTimeLeft("Syncing...");
+        return;
+      }
+
+      const mins = Math.floor(diff / 1000 / 60);
+      const secs = Math.floor((diff / 1000) % 60);
+      setTimeLeft(`${mins}:${secs.toString().padStart(2, "0")}`);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [nextSyncTime]);
+
+  const handleManualSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const resp = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/sync/run`, {
+        method: 'POST',
+        headers: {
+          'Bypass-Tunnel-Reminder': 'true'
+        }
+      });
+      if (resp.ok) {
+        alert("⚡ Sync Triggered! Dashboard will update in 1-2 minutes.");
+      } else {
+        alert("❌ Sync failed to start.");
+      }
+    } catch (e) {
+      alert("❌ Connection error. Is your tunnel running?");
+    } finally {
+      setTimeout(() => setIsSyncing(false), 5000); // Debounce
+    }
+  };
+
+  if (!nextSyncTime) return null;
+
+  return (
+    <div className="hidden lg:flex items-center">
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={handleManualSync}
+        disabled={isSyncing}
+        className={`relative overflow-hidden group px-4 py-2 rounded-xl border border-white/10 glass-premium text-[10px] font-black uppercase tracking-widest transition-all ${isSyncing ? 'opacity-50 cursor-not-allowed' : 'hover:border-white/20'}`}
+        style={{ color: teamColor }}
+      >
+        <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+        {isSyncing ? 'Synchronizing...' : 'Sync Now'}
+      </motion.button>
+    </div>
+  );
+}
+
+function CompetitiveLoader({ onFinish, dataReady, teamColor }: { onFinish: () => void; dataReady: boolean; teamColor: string }) {
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
+    // Stage 1: Initial high-energy intro (Fixed timing)
     const sequence = [
       { delay: 800, next: 1 },  // READY
       { delay: 800, next: 2 },  // EXCHANGE
       { delay: 800, next: 3 },  // MARATHON
-      { delay: 1000, next: 4 }, // GO!
     ];
 
     let timer: NodeJS.Timeout;
     const runSequence = (idx: number) => {
-      if (idx >= sequence.length) {
-        onFinish();
-        return;
-      }
+      if (idx >= sequence.length) return;
       timer = setTimeout(() => {
         setPhase(sequence[idx].next);
         runSequence(idx + 1);
@@ -88,10 +171,22 @@ function CompetitiveLoader({ onFinish }: { onFinish: () => void }) {
 
     runSequence(0);
     return () => clearTimeout(timer);
-  }, [onFinish]);
+  }, []);
+
+  // Stage 2: Wait for data in Phase 3
+  useEffect(() => {
+    if (phase === 3 && dataReady) {
+      // Transition to GO!
+      const timer = setTimeout(() => {
+        setPhase(4);
+        setTimeout(onFinish, 1200); // 1.2s of GO! energy before fade
+      }, 500); 
+      return () => clearTimeout(timer);
+    }
+  }, [phase, dataReady, onFinish]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#051B1D] overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-transparent overflow-hidden">
       {/* Speed Lines Background */}
       <div className="absolute inset-0 opacity-30">
         {[...Array(25)].map((_, i) => (
@@ -105,8 +200,12 @@ function CompetitiveLoader({ onFinish }: { onFinish: () => void }) {
               delay: i * 0.08, 
               ease: "linear" 
             }}
-            className="absolute h-[2px] w-[500px] bg-linear-to-r from-transparent via-[#73FFFF]/40 to-transparent"
-            style={{ top: `${(i * 4)}%`, opacity: Math.random() }}
+            className="absolute h-[2px] w-[500px] bg-linear-to-r from-transparent via-[var(--team-accent)]/20 to-transparent"
+            style={{ 
+              top: `${(i * 4)}%`, 
+              opacity: 0.1 + (i % 10) * 0.08,
+              '--team-accent': teamColor
+            } as any}
           />
         ))}
       </div>
@@ -122,7 +221,7 @@ function CompetitiveLoader({ onFinish }: { onFinish: () => void }) {
             exit={{ scale: 1.5, opacity: 0, filter: "blur(20px)" }}
             className="relative"
           >
-             <h1 className="text-6xl sm:text-9xl font-black text-white italic tracking-tighter">
+             <h1 className="text-6xl sm:text-9xl font-black text-white/30 italic tracking-tighter">
               READY?
             </h1>
           </motion.div>
@@ -137,7 +236,7 @@ function CompetitiveLoader({ onFinish }: { onFinish: () => void }) {
             transition={{ type: "spring", damping: 12, stiffness: 100 }}
             className="relative"
           >
-             <h1 className="text-7xl sm:text-[12rem] font-black text-[#FF1744] italic tracking-tight drop-shadow-[0_0_50px_rgba(255,23,68,0.6)]">
+             <h1 className="text-7xl sm:text-[12rem] font-black italic tracking-tight transition-all duration-700" style={{ color: teamColor, filter: `drop-shadow(0 0 50px ${teamColor}66)` }}>
               EXCHANGE
             </h1>
           </motion.div>
@@ -148,17 +247,47 @@ function CompetitiveLoader({ onFinish }: { onFinish: () => void }) {
             key="marathon"
             initial={{ x: "100vw", skewX: 20, opacity: 0 }}
             animate={{ x: 0, skewX: 0, opacity: 1 }}
-            exit={{ scale: 3, opacity: 0, filter: "blur(40px)" }}
+            exit={{ y: -50, opacity: 0, filter: "blur(20px)" }}
             transition={{ type: "spring", damping: 12, stiffness: 100 }}
             className="relative"
           >
-             <h1 className="text-7xl sm:text-[12rem] font-black text-[#73FFFF] italic tracking-tight drop-shadow-[0_0_50px_rgba(115,255,255,0.6)]">
+             <h1 className="text-7xl sm:text-[12rem] font-black text-white/60 italic tracking-tight drop-shadow-[0_0_50px_rgba(255,255,255,0.2)]">
               MARATHON
             </h1>
           </motion.div>
         )}
 
         {phase === 3 && (
+          <motion.div
+            key="syncing"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 1.5, opacity: 0, filter: "blur(20px)" }}
+            className="flex flex-col items-center"
+          >
+             <div className="relative mb-12">
+               {/* Logo at center */}
+               <div className="absolute inset-0 flex items-center justify-center">
+                 <img src="/logo.png" alt="Xcend Logo" className="w-20 h-20 object-contain drop-shadow-[0_0_20px_rgba(255,205,0,0.3)]" />
+               </div>
+               {/* Buffering Ring */}
+               <motion.div 
+                 animate={{ rotate: 360 }}
+                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                 className="h-32 w-32 sm:h-48 sm:w-48 rounded-full border-t-4 border-r-4 border-[#73FFFF] border-b-4 border-l-4 border-white/5 opacity-50"
+                 style={{ borderTopColor: '#73FFFF', borderRightColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: 'transparent' }}
+               />
+             </div>
+             <p className="text-sm sm:text-lg font-black uppercase tracking-[0.5em] animate-pulse" style={{ color: teamColor }}>
+               Syncing Performance Data
+             </p>
+             <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white/30">
+               Connecting to Marathon Database...
+             </p>
+          </motion.div>
+        )}
+
+        {phase === 4 && (
           <motion.div
             key="go"
             initial={{ scale: 0, rotate: -45, opacity: 0 }}
@@ -181,166 +310,204 @@ function CompetitiveLoader({ onFinish }: { onFinish: () => void }) {
 }
 
 const teamDataMap: Record<string, TeamData> = {
-  b2b: {
-    name: "B2B",
-    displayName: "Partnership Building & Business Performance",
+  igv_b2b: {
+    name: "IGV",
+    displayName: "Incoming Global Volunteer - B2B",
     miniTeams: [
       {
-        name: "B2B Titans",
+        slug: "b2b",
+        name: "B2B",
         rank: 1,
         points: 1320,
         growth: 180,
         icon: "BT",
         performers: [
-          { name: "Ariana Cole", role: "Deal Closer", score: 540, avatar: "AC", metrics: { mous: 24, coldCalls: 45, followups: 12 } },
-          { name: "Brian Kim", role: "Pipeline Builder", score: 470, avatar: "BK", metrics: { mous: 18, coldCalls: 38, followups: 15 } },
-          { name: "Nina Park", role: "Partner Lead", score: 410, avatar: "NP", metrics: { mous: 22, coldCalls: 30, followups: 10 } },
-          { name: "Sion Wu", role: "Market Analyst", score: 380, avatar: "SW", metrics: { mous: 15, coldCalls: 35, followups: 18 } },
-          { name: "Tara Singh", role: "Lead Gen", score: 320, avatar: "TS", metrics: { mous: 12, coldCalls: 40, followups: 22 } },
-          { name: "Lucas Gray", role: "Contract Mgr", score: 290, avatar: "LG", metrics: { mous: 10, coldCalls: 25, followups: 15 } },
-          { name: "Maya J", role: "Sales Support", score: 250, avatar: "MJ", metrics: { mous: 8, coldCalls: 20, followups: 12 } },
+          { email: "ariana@example.com", name: "Ariana Cole", role: "Deal Closer", score: 540, avatar: "AC", metrics: { mous: 24, coldCalls: 45, followups: 12 } },
+          { email: "brian@example.com", name: "Brian Kim", role: "Pipeline Builder", score: 470, avatar: "BK", metrics: { mous: 18, coldCalls: 38, followups: 15 } },
+          { email: "nina@example.com", name: "Nina Park", role: "Partner Lead", score: 410, avatar: "NP", metrics: { mous: 22, coldCalls: 30, followups: 10 } },
+          { email: "sion@example.com", name: "Sion Wu", role: "Market Analyst", score: 380, avatar: "SW", metrics: { mous: 15, coldCalls: 35, followups: 18 } },
+          { email: "tara@example.com", name: "Tara Singh", role: "Lead Gen", score: 320, avatar: "TS", metrics: { mous: 12, coldCalls: 40, followups: 22 } },
+          { email: "lucas@example.com", name: "Lucas Gray", role: "Contract Mgr", score: 290, avatar: "LG", metrics: { mous: 10, coldCalls: 25, followups: 15 } },
+          { email: "maya@example.com", name: "Maya J", role: "Sales Support", score: 250, avatar: "MJ", metrics: { mous: 8, coldCalls: 20, followups: 12 } },
         ],
       },
+    ],
+    totalPoints: 1320,
+    totalGrowth: 180,
+    completedActions: 45,
+    weeklyGrowth: 180,
+  },
+  igv_ir: {
+    name: "IGV",
+    displayName: "Incoming Global Volunteer - IR Matching",
+    miniTeams: [
       {
-        name: "B2B Hunters",
-        rank: 2,
+        slug: "ir_matching",
+        name: "IR Matching",
+        rank: 1,
         points: 1130,
         growth: 140,
         icon: "BH",
         performers: [
-          { name: "Marco Lee", role: "Outreach Lead", score: 500, avatar: "ML", metrics: { mous: 20, coldCalls: 42, followups: 14 } },
-          { name: "Sasha Ray", role: "Prospect Analyst", score: 390, avatar: "SR", metrics: { mous: 15, coldCalls: 35, followups: 18 } },
-          { name: "Dion Cruz", role: "Follow-up Owner", score: 350, avatar: "DC", metrics: { mous: 12, coldCalls: 28, followups: 20 } },
-          { name: "Elena V", role: "Growth Rep", score: 310, avatar: "EV", metrics: { mous: 10, coldCalls: 30, followups: 15 } },
-          { name: "Kai Chen", role: "Market Lead", score: 280, avatar: "KC", metrics: { mous: 9, coldCalls: 25, followups: 12 } },
-          { name: "Mira Sol", role: "Sales Ops", score: 240, avatar: "MS", metrics: { mous: 7, coldCalls: 20, followups: 10 } },
-          { name: "Leo Das", role: "Outreach", score: 210, avatar: "LD", metrics: { mous: 6, coldCalls: 18, followups: 8 } },
+          { email: "marco.l@example.com", name: "Marco Lee", role: "Outreach Lead", score: 500, avatar: "ML", metrics: { mous: 20, coldCalls: 42, followups: 14 } },
+          { email: "sasha.r@example.com", name: "Sasha Ray", role: "Prospect Analyst", score: 390, avatar: "SR", metrics: { mous: 15, coldCalls: 35, followups: 18 } },
+          { email: "dion.c@example.com", name: "Dion Cruz", role: "Follow-up Owner", score: 350, avatar: "DC", metrics: { mous: 12, coldCalls: 28, followups: 20 } },
+          { email: "elena.v@example.com", name: "Elena V", role: "Growth Rep", score: 310, avatar: "EV", metrics: { mous: 10, coldCalls: 30, followups: 15 } },
+          { email: "kai.c@example.com", name: "Kai Chen", role: "Market Lead", score: 280, avatar: "KC", metrics: { mous: 9, coldCalls: 25, followups: 12 } },
+          { email: "mira.s@example.com", name: "Mira Sol", role: "Sales Ops", score: 240, avatar: "MS", metrics: { mous: 7, coldCalls: 20, followups: 10 } },
+          { email: "leo.d@example.com", name: "Leo Das", role: "Outreach", score: 210, avatar: "LD", metrics: { mous: 6, coldCalls: 18, followups: 8 } },
         ],
       },
     ],
-    totalPoints: 2450,
-    totalGrowth: 320,
-    completedActions: 86,
-    weeklyGrowth: 340,
+    totalPoints: 1130,
+    totalGrowth: 140,
+    completedActions: 41,
+    weeklyGrowth: 140,
   },
-  ir: {
-    name: "IR",
-    displayName: "International Relations & Global Coordination",
+  igt_ops: {
+    name: "IGT",
+    displayName: "Incoming Global Talent - Operations",
     miniTeams: [
       {
+        slug: "ir_nexus",
         name: "IR Nexus",
         rank: 1,
         points: 1280,
         growth: 165,
         icon: "IN",
         performers: [
-          { name: "Layla Noor", role: "Exchange Liaison", score: 520, avatar: "LN", metrics: { mous: 21, coldCalls: 48, followups: 11 } },
-          { name: "Theo Grant", role: "Country Lead", score: 430, avatar: "TG", metrics: { mous: 17, coldCalls: 40, followups: 16 } },
-          { name: "Mina Sol", role: "Partnership Support", score: 330, avatar: "MS", metrics: { mous: 14, coldCalls: 32, followups: 19 } },
-          { name: "Sion Wu", role: "Market Analyst", score: 310, avatar: "SW", metrics: { mous: 13, coldCalls: 30, followups: 15 } },
-          { name: "Tara Singh", role: "Lead Gen", score: 290, avatar: "TS", metrics: { mous: 11, coldCalls: 28, followups: 18 } },
-          { name: "Lucas Gray", role: "Contract Mgr", score: 260, avatar: "LG", metrics: { mous: 9, coldCalls: 22, followups: 14 } },
-          { name: "Maya J", role: "Sales Support", score: 230, avatar: "MJ", metrics: { mous: 7, coldCalls: 18, followups: 11 } },
+          { email: "layla.n@example.com", name: "Layla Noor", role: "Exchange Liaison", score: 520, avatar: "LN", metrics: { mous: 21, coldCalls: 48, followups: 11 } },
+          { email: "theo.g@example.com", name: "Theo Grant", role: "Country Lead", score: 430, avatar: "TG", metrics: { mous: 17, coldCalls: 40, followups: 16 } },
+          { email: "mina.s@example.com", name: "Mina Sol", role: "Partnership Support", score: 330, avatar: "MS", metrics: { mous: 14, coldCalls: 32, followups: 19 } },
+          { email: "sion.w@example.com", name: "Sion Wu", role: "Market Analyst", score: 310, avatar: "SW", metrics: { mous: 13, coldCalls: 30, followups: 15 } },
+          { email: "tara.s@example.com", name: "Tara Singh", role: "Lead Gen", score: 290, avatar: "TS", metrics: { mous: 11, coldCalls: 28, followups: 18 } },
+          { email: "lucas.g@example.com", name: "Lucas Gray", role: "Contract Mgr", score: 260, avatar: "LG", metrics: { mous: 9, coldCalls: 22, followups: 14 } },
+          { email: "maya.j@example.com", name: "Maya J", role: "Sales Support", score: 230, avatar: "MJ", metrics: { mous: 7, coldCalls: 18, followups: 11 } },
         ],
       },
+    ],
+    totalPoints: 1280,
+    totalGrowth: 165,
+    completedActions: 46,
+    weeklyGrowth: 165,
+  },
+  igt_ir: {
+    name: "IGT",
+    displayName: "Incoming Global Talent - IR Matching",
+    miniTeams: [
       {
+        slug: "ir_connectors",
         name: "IR Connectors",
-        rank: 2,
+        rank: 1,
         points: 1210,
         growth: 155,
         icon: "IC",
         performers: [
-          { name: "Ethan Vale", role: "Network Builder", score: 480, avatar: "EV", metrics: { mous: 19, coldCalls: 44, followups: 13 } },
-          { name: "Ivy Chen", role: "Account Partner", score: 410, avatar: "IC", metrics: { mous: 16, coldCalls: 36, followups: 17 } },
-          { name: "Sara Moon", role: "Process Lead", score: 320, avatar: "SM", metrics: { mous: 13, coldCalls: 30, followups: 21 } },
-          { name: "Noel Hart", role: "Ops Specialist", score: 290, avatar: "NH", metrics: { mous: 11, coldCalls: 26, followups: 16 } },
-          { name: "Kira Dean", role: "Matcher", score: 260, avatar: "KD", metrics: { mous: 9, coldCalls: 22, followups: 14 } },
-          { name: "Rico Barnes", role: "Workflow Lead", score: 230, avatar: "RB", metrics: { mous: 7, coldCalls: 18, followups: 12 } },
-          { name: "Tina Moss", role: "Follow-up Owner", score: 200, avatar: "TM", metrics: { mous: 6, coldCalls: 15, followups: 10 } },
+          { email: "ethan.v@example.com", name: "Ethan Vale", role: "Network Builder", score: 480, avatar: "EV", metrics: { mous: 19, coldCalls: 44, followups: 13 } },
+          { email: "ivy.c@example.com", name: "Ivy Chen", role: "Account Partner", score: 410, avatar: "IC", metrics: { mous: 16, coldCalls: 36, followups: 17 } },
+          { email: "sara.m@example.com", name: "Sara Moon", role: "Process Lead", score: 320, avatar: "SM", metrics: { mous: 13, coldCalls: 30, followups: 21 } },
+          { email: "noel.h@example.com", name: "Noel Hart", role: "Ops Specialist", score: 290, avatar: "NH", metrics: { mous: 11, coldCalls: 26, followups: 16 } },
+          { email: "kira.d@example.com", name: "Kira Dean", role: "Matcher", score: 260, avatar: "KD", metrics: { mous: 9, coldCalls: 22, followups: 14 } },
+          { email: "rico.b@example.com", name: "Rico Barnes", role: "Workflow Lead", score: 230, avatar: "RB", metrics: { mous: 7, coldCalls: 18, followups: 12 } },
+          { email: "tina.m@example.com", name: "Tina Moss", role: "Follow-up Owner", score: 200, avatar: "TM", metrics: { mous: 6, coldCalls: 15, followups: 10 } },
         ],
       },
     ],
-    totalPoints: 2490,
-    totalGrowth: 320,
-    completedActions: 92,
-    weeklyGrowth: 365,
+    totalPoints: 1210,
+    totalGrowth: 155,
+    completedActions: 46,
+    weeklyGrowth: 155,
   },
-  matching: {
-    name: "Matching",
-    displayName: "Real-time Matching & Conversion Optimization",
+  ogt_ops: {
+    name: "OGT",
+    displayName: "Outgoing Global Talent - Operations",
     miniTeams: [
       {
+        slug: "matching_pros",
         name: "Matching Pros",
         rank: 1,
         points: 1350,
         growth: 195,
         icon: "MP",
         performers: [
-          { name: "Jade Brooks", role: "Conversion Lead", score: 560, avatar: "JB", metrics: { mous: 26, coldCalls: 50, followups: 9 } },
-          { name: "Noel Hart", role: "Ops Specialist", score: 450, avatar: "NH", metrics: { mous: 20, coldCalls: 42, followups: 14 } },
-          { name: "Kira Dean", role: "Matcher", score: 340, avatar: "KD", metrics: { mous: 15, coldCalls: 34, followups: 18 } },
-          { name: "Rico Barnes", role: "Workflow Lead", score: 310, avatar: "RB", metrics: { mous: 14, coldCalls: 30, followups: 15 } },
-          { name: "Tina Moss", role: "Follow-up Owner", score: 280, avatar: "TM", metrics: { mous: 12, coldCalls: 26, followups: 12 } },
-          { name: "Ava Quinn", role: "Data Tracker", score: 250, avatar: "AQ", metrics: { mous: 10, coldCalls: 22, followups: 10 } },
-          { name: "Leo Das", role: "Outreach", score: 220, avatar: "LD", metrics: { mous: 8, coldCalls: 18, followups: 8 } },
+          { email: "jade.b@example.com", name: "Jade Brooks", role: "Conversion Lead", score: 560, avatar: "JB", metrics: { mous: 26, coldCalls: 50, followups: 9 } },
+          { email: "noel.h2@example.com", name: "Noel Hart", role: "Ops Specialist", score: 450, avatar: "NH", metrics: { mous: 20, coldCalls: 42, followups: 14 } },
+          { email: "kira.d2@example.com", name: "Kira Dean", role: "Matcher", score: 340, avatar: "KD", metrics: { mous: 15, coldCalls: 34, followups: 18 } },
+          { email: "rico.b2@example.com", name: "Rico Barnes", role: "Workflow Lead", score: 310, avatar: "RB", metrics: { mous: 14, coldCalls: 30, followups: 15 } },
+          { email: "tina.m2@example.com", name: "Tina Moss", role: "Follow-up Owner", score: 280, avatar: "TM", metrics: { mous: 12, coldCalls: 26, followups: 12 } },
+          { email: "ava.q@example.com", name: "Ava Quinn", role: "Data Tracker", score: 250, avatar: "AQ", metrics: { mous: 10, coldCalls: 22, followups: 10 } },
+          { email: "leo.d2@example.com", name: "Leo Das", role: "Outreach", score: 220, avatar: "LD", metrics: { mous: 8, coldCalls: 18, followups: 8 } },
         ],
       },
+    ],
+    totalPoints: 1350,
+    totalGrowth: 195,
+    completedActions: 42,
+    weeklyGrowth: 195,
+  },
+  ogt_matching: {
+    name: "OGT",
+    displayName: "Outgoing Global Talent - IR Matching",
+    miniTeams: [
       {
+        slug: "matching_core",
         name: "Matching Core",
-        rank: 2,
+        rank: 1,
         points: 1100,
         growth: 130,
         icon: "MC",
         performers: [
-          { name: "Rico Barnes", role: "Workflow Lead", score: 430, avatar: "RB", metrics: { mous: 18, coldCalls: 38, followups: 15 } },
-          { name: "Tina Moss", role: "Follow-up Owner", score: 370, avatar: "TM", metrics: { mous: 16, coldCalls: 35, followups: 17 } },
-          { name: "Ava Quinn", role: "Data Tracker", score: 300, avatar: "AQ", metrics: { mous: 12, coldCalls: 28, followups: 20 } },
-          { name: "Kai Chen", role: "Market Lead", score: 270, avatar: "KC", metrics: { mous: 10, coldCalls: 25, followups: 15 } },
-          { name: "Mira Sol", role: "Sales Ops", score: 240, avatar: "MS", metrics: { mous: 8, coldCalls: 20, followups: 12 } },
-          { name: "Luna J", role: "Coord Lead", score: 210, avatar: "LJ", metrics: { mous: 6, coldCalls: 18, followups: 10 } },
-          { name: "Zane O", role: "Support", score: 180, avatar: "ZO", metrics: { mous: 5, coldCalls: 15, followups: 8 } },
+          { email: "rico.b3@example.com", name: "Rico Barnes", role: "Workflow Lead", score: 430, avatar: "RB", metrics: { mous: 18, coldCalls: 38, followups: 15 } },
+          { email: "tina.m3@example.com", name: "Tina Moss", role: "Follow-up Owner", score: 370, avatar: "TM", metrics: { mous: 16, coldCalls: 35, followups: 17 } },
+          { email: "ava.q2@example.com", name: "Ava Quinn", role: "Data Tracker", score: 300, avatar: "AQ", metrics: { mous: 12, coldCalls: 28, followups: 20 } },
+          { email: "kai.c2@example.com", name: "Kai Chen", role: "Market Lead", score: 270, avatar: "KC", metrics: { mous: 10, coldCalls: 25, followups: 15 } },
+          { email: "mira.s2@example.com", name: "Mira Sol", role: "Sales Ops", score: 240, avatar: "MS", metrics: { mous: 8, coldCalls: 20, followups: 12 } },
+          { email: "luna.j@example.com", name: "Luna J", role: "Coord Lead", score: 210, avatar: "LJ", metrics: { mous: 6, coldCalls: 18, followups: 10 } },
+          { email: "zane.o@example.com", name: "Zane O", role: "Support", score: 180, avatar: "ZO", metrics: { mous: 5, coldCalls: 15, followups: 8 } },
         ],
       },
     ],
-    totalPoints: 2450,
-    totalGrowth: 325,
-    completedActions: 78,
-    weeklyGrowth: 355,
+    totalPoints: 1100,
+    totalGrowth: 130,
+    completedActions: 36,
+    weeklyGrowth: 130,
   },
   marcom: {
-    name: "Marcom",
-    displayName: "Campaign Visibility & Social Engagement",
+    name: "MST",
+    displayName: "Marketing & Strategy - Growth & Outreach",
     miniTeams: [
       {
-        name: "Marcom Stars",
+        slug: "marcom_stars",
+        name: "T01",
         rank: 1,
         points: 1290,
         growth: 170,
         icon: "MS",
         performers: [
-          { name: "Pia Logan", role: "Campaign Lead", score: 510, avatar: "PL", metrics: { mous: 22, coldCalls: 46, followups: 12 } },
-          { name: "Cody Wynn", role: "Content Strategist", score: 430, avatar: "CW", metrics: { mous: 18, coldCalls: 39, followups: 15 } },
-          { name: "Lena Ford", role: "Brand Owner", score: 350, avatar: "LF", metrics: { mous: 14, coldCalls: 31, followups: 20 } },
-          { name: "Sion Wu", role: "Market Analyst", score: 320, avatar: "SW", metrics: { mous: 12, coldCalls: 28, followups: 16 } },
-          { name: "Tara Singh", role: "Lead Gen", score: 290, avatar: "TS", metrics: { mous: 10, coldCalls: 25, followups: 14 } },
-          { name: "Lucas Gray", role: "Contract Mgr", score: 260, avatar: "LG", metrics: { mous: 8, coldCalls: 20, followups: 12 } },
-          { name: "Maya J", role: "Sales Support", score: 230, avatar: "MJ", metrics: { mous: 6, coldCalls: 18, followups: 10 } },
+          { email: "pia.l@example.com", name: "Pia Logan", role: "Campaign Lead", score: 510, avatar: "PL", metrics: { mous: 22, coldCalls: 46, followups: 12 } },
+          { email: "cody.w@example.com", name: "Cody Wynn", role: "Content Strategist", score: 430, avatar: "CW", metrics: { mous: 18, coldCalls: 39, followups: 15 } },
+          { email: "lena.f@example.com", name: "Lena Ford", role: "Brand Owner", score: 350, avatar: "LF", metrics: { mous: 14, coldCalls: 31, followups: 20 } },
+          { email: "sion.w2@example.com", name: "Sion Wu", role: "Market Analyst", score: 320, avatar: "SW", metrics: { mous: 12, coldCalls: 28, followups: 16 } },
+          { email: "tara.s2@example.com", name: "Tara Singh", role: "Lead Gen", score: 290, avatar: "TS", metrics: { mous: 10, coldCalls: 25, followups: 14 } },
+          { email: "lucas.g2@example.com", name: "Lucas Gray", role: "Contract Mgr", score: 260, avatar: "LG", metrics: { mous: 8, coldCalls: 20, followups: 12 } },
+          { email: "maya.j2@example.com", name: "Maya J", role: "Sales Support", score: 230, avatar: "MJ", metrics: { mous: 6, coldCalls: 18, followups: 10 } },
         ],
       },
       {
-        name: "Marcom Wave",
+        slug: "marcom_wave",
+        name: "T02",
         rank: 2,
         points: 1160,
         growth: 145,
         icon: "MW",
         performers: [
-          { name: "Mason Hale", role: "Media Planner", score: 460, avatar: "MH", metrics: { mous: 19, coldCalls: 43, followups: 14 } },
-          { name: "Ella Reed", role: "Audience Lead", score: 390, avatar: "ER", metrics: { mous: 16, coldCalls: 36, followups: 17 } },
-          { name: "Zane Ortiz", role: "Social Manager", score: 310, avatar: "ZO", metrics: { mous: 12, coldCalls: 29, followups: 22 } },
-          { name: "Elena V", role: "Growth Rep", score: 280, avatar: "EV", metrics: { mous: 10, coldCalls: 25, followups: 15 } },
-          { name: "Kai Chen", role: "Market Lead", score: 250, avatar: "KC", metrics: { mous: 8, coldCalls: 22, followups: 12 } },
-          { name: "Mira Sol", role: "Sales Ops", score: 220, avatar: "MS", metrics: { mous: 6, coldCalls: 18, followups: 10 } },
-          { name: "Leo Das", role: "Outreach", score: 190, avatar: "LD", metrics: { mous: 5, coldCalls: 15, followups: 8 } },
+          { email: "mason.h@example.com", name: "Mason Hale", role: "Media Planner", score: 460, avatar: "MH", metrics: { mous: 19, coldCalls: 43, followups: 14 } },
+          { email: "ella.r@example.com", name: "Ella Reed", role: "Audience Lead", score: 390, avatar: "ER", metrics: { mous: 16, coldCalls: 36, followups: 17 } },
+          { email: "zane.o2@example.com", name: "Zane Ortiz", role: "Social Manager", score: 310, avatar: "ZO", metrics: { mous: 12, coldCalls: 29, followups: 22 } },
+          { email: "elena.v2@example.com", name: "Elena V", role: "Growth Rep", score: 280, avatar: "EV", metrics: { mous: 10, coldCalls: 25, followups: 15 } },
+          { email: "kai.c3@example.com", name: "Kai Chen", role: "Market Lead", score: 250, avatar: "KC", metrics: { mous: 8, coldCalls: 22, followups: 12 } },
+          { email: "mira.s3@example.com", name: "Mira Sol", role: "Sales Ops", score: 220, avatar: "MS", metrics: { mous: 6, coldCalls: 18, followups: 10 } },
+          { email: "leo.d3@example.com", name: "Leo Das", role: "Outreach", score: 190, avatar: "LD", metrics: { mous: 5, coldCalls: 15, followups: 8 } },
         ],
       },
     ],
@@ -352,53 +519,91 @@ const teamDataMap: Record<string, TeamData> = {
 };
 
 const teamColorMap: Record<string, string> = {
-  b2b: "var(--b2b-color)",
-  ir: "var(--ir-color)",
-  matching: "var(--matching-color)",
-  marcom: "var(--marcom-color)",
+  igv_b2b: "var(--igv-color)",
+  igv_ir: "var(--igv-color)",
+  igt_ops: "var(--igt-color)",
+  igt_ir: "var(--igt-color)",
+  ogt_ops: "var(--ogt-color)",
+  ogt_matching: "var(--ogt-color)",
+  marcom: "var(--mst-color)",
+  irm1_t01: "var(--igv-color)",
+  irm2_t01: "var(--igv-color)",
+  irm1_t02: "var(--igv-color)",
+  irm2_t02: "var(--igv-color)",
+  members: "var(--mst-color)",
+  tls: "var(--mst-color)",
 };
 
 const quickInsights = [
-  { label: "Most Improved Team", value: "B2B Hunters", growth: "+12.4%" },
-  { label: "Top Swapper", value: "Alex Johnson", growth: "+8 actions" },
-  { label: "Fastest Growth Category", value: "Outreach", growth: "+28%" },
+  { label: "Most Improved Team", value: "B2B Hunters" },
+  { label: "Top Swapper", value: "Alex Johnson" },
+  { label: "Fastest Growth Category", value: "Outreach" },
 ];
 
 const vibrantBarColors = [
   "bg-[#FF5722]", // Deep Orange
   "bg-[#4CAF50]", // Green
-  "bg-[#2196F3]", // Blue
+  "var(--team-accent)", // Dynamic Team Color
   "bg-[#FFC107]", // Amber
 ];
 
 const stackedChartSegmentColors = [
   "bg-[#E91E63] shadow-[0_0_20px_rgba(233,30,99,0.45)]", // Pink
   "bg-[#9C27B0] shadow-[0_0_20px_rgba(156,39,176,0.45)]", // Purple
-  "bg-[#00BCD4] shadow-[0_0_20px_rgba(0,188,212,0.45)]", // Cyan
+  "var(--team-accent-bg) shadow-[0_0_20px_rgba(0,188,212,0.45)]", // Dynamic Team Color
 ];
 
-const stackedLegendDots = ["bg-[#E91E63]", "bg-[#9C27B0]", "bg-[#00BCD4]"];
+const stackedLegendDots = ["bg-[#E91E63]", "bg-[#9C27B0]", "var(--team-accent-bg)"];
+const mstTeamNames: Record<string, string> = {
+  "T01": "Team Senadi",
+  "T02": "Team Yasodara",
+  "T03": "Team Hasandi",
+  "T04": "Team Shanaya",
+  "T05": "Team Thiva",
+  "T06": "Team Raj",
+  "T07": "Team Dimalka",
+  "t01": "Team Senadi",
+  "t02": "Team Yasodara",
+  "t03": "Team Hasandi",
+  "t04": "Team Shanaya",
+  "t05": "Team Thiva",
+  "t06": "Team Raj",
+  "t07": "Team Dimalka",
+  "irm1_t01": "IRM1 T01",
+  "irm2_t01": "IRM2 T01",
+  "irm1_t02": "IRM1 T02",
+  "irm2_t02": "IRM2 T02"
+};
+
+const formatTeamName = (name: string, isMST: boolean) => {
+  if (!isMST) return name;
+  // Rename irm1_t01 -> T01, etc.
+  const match = name.match(/t(\d+)/i);
+  if (match) return `T${match[1]}`;
+  return name;
+};
 
 function MiniTeamCard({
   team,
   isLeader,
-  onSelect,
   teamColor,
+  isMST = false
 }: {
   team: MiniTeamData;
   isLeader: boolean;
-  onSelect: () => void;
   teamColor: string;
+  isMST?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <div
       className={`group/card relative w-full rounded-2xl border p-6 sm:p-8 text-left transition-all duration-500 overflow-hidden ${
         isLeader
-          ? "border-[#FFD700]/50 bg-linear-to-br from-[#FFD700]/15 via-[#003339] to-[#FFD700]/10 shadow-[0_0_40px_rgba(255,215,0,0.25)] ring-2 ring-[#FFD700]/40"
+          ? "border-[#FFD700]/50 shadow-[0_0_40px_rgba(255,215,0,0.25)] ring-2 ring-[#FFD700]/40"
           : "border-white/5 bg-white/[0.02] hover:border-white/20"
       } glass-premium hover:scale-[1.02]`}
+      style={isLeader ? { 
+        background: `linear-gradient(to bottom right, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05), transparent)` 
+      } : {}}
     >
       {isLeader && <GlimmerOverlay />}
 
@@ -406,10 +611,10 @@ function MiniTeamCard({
         <div className="flex items-center gap-4 mb-8">
           <div>
             <h3 
-              className={`text-xl sm:text-2xl font-black tracking-tight ${isLeader ? "text-[#FFD700]" : "text-[#F7F7F8]"}`}
-              style={isLeader ? { textShadow: '0 0 15px rgba(115, 255, 255, 0.2)' } : {}}
+              className={`text-xl sm:text-2xl font-black tracking-tight text-[#F7F7F8]`}
+              style={isLeader ? { color: '#ffcd00', textShadow: '0 0 15px rgba(255, 205, 0, 0.3)' } : {}}
             >
-              {team.name}
+              {formatTeamName(team.name, isMST)}
             </h3>
             <div className="flex items-center gap-2 mt-1">
               <span className={`h-2 w-2 rounded-full ${isLeader ? "bg-[var(--level-up)]" : "bg-white/20"}`} />
@@ -420,15 +625,15 @@ function MiniTeamCard({
 
         <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-8">
           <div>
-            <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] mb-1">Total Performance</p>
+            <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Total Performance</p>
             <p className="text-2xl sm:text-3xl font-black text-[#F7F7F8] tabular-nums">{team.points.toLocaleString()}</p>
           </div>
-          <div>
-            <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] mb-1">Weekly Growth</p>
-            <p className="text-2xl sm:text-3xl font-black tabular-nums" style={{ color: teamColor }}>
+          {/* <div>
+            <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Weekly Growth</p>
+            <p className="text-2xl sm:text-3xl font-black tabular-nums" style={{ color: isLeader ? '#ffcd00' : teamColor }}>
               +{team.growth}
             </p>
-          </div>
+          </div> */}
         </div>
 
         <div className="relative group/metrics mt-6">
@@ -451,28 +656,44 @@ function MiniTeamCard({
           </div>
 
           {/* Hover Tooltip for Metrics */}
-          <div className="absolute -top-24 left-1/2 -translate-x-1/2 z-20 w-48 pointer-events-none opacity-0 group-hover/card:opacity-100 group-hover/metrics:opacity-100 transition-all duration-300 transform scale-95 group-hover/card:scale-100 group-hover/metrics:scale-100">
-            <div className="rounded-2xl border border-white/10 bg-[#003339]/95 p-4 shadow-2xl backdrop-blur-md">
-              <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 text-center border-b border-white/5 pb-2">Squad Activity</p>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px] font-bold">
-                  <span className="text-white/30">MOUS</span>
-                  <span className="text-[#E91E63]">{team.performers.reduce((s, p) => s + p.metrics.mous, 0)}</span>
-                </div>
-                <div className="flex justify-between items-center text-[10px] font-bold">
-                  <span className="text-white/30">CALLS</span>
-                  <span className="text-[#9C27B0]">{team.performers.reduce((s, p) => s + p.metrics.coldCalls, 0)}</span>
-                </div>
-                <div className="flex justify-between items-center text-[10px] font-bold">
-                  <span className="text-white/30">FOLLOWS</span>
-                  <span className="text-[#00BCD4]">{team.performers.reduce((s, p) => s + p.metrics.followups, 0)}</span>
-                </div>
+          <div className="absolute -top-32 left-1/2 -translate-x-1/2 z-20 w-56 pointer-events-none opacity-0 group-hover/card:opacity-100 group-hover/metrics:opacity-100 transition-all duration-300 transform scale-95 group-hover/card:scale-100 group-hover/metrics:scale-100">
+            <div 
+              className="rounded-2xl border border-white/10 p-4 shadow-2xl backdrop-blur-md"
+              style={{ backgroundColor: `color-mix(in srgb, ${teamColor}, black 90%)` }}
+            >
+              <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-3 text-center border-b border-white/5 pb-2">
+                {isMST ? `${formatTeamName(team.name, isMST)} Members + TLs` : "Squad Activity"}
+              </p>
+              <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                {isMST ? (
+                  [...(team.allPerformers || team.performers)].sort((a,b) => b.score - a.score).map((p, i) => (
+                    <div key={i} className="flex justify-between items-center text-[10px] font-bold gap-2">
+                      <span className="text-white/30 truncate flex-1">{p.name}</span>
+                      <span style={{ color: teamColor }}>{p.score}</span>
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center text-[10px] font-bold">
+                      <span className="text-white/30">MOUS</span>
+                      <span className="text-[#E91E63]">{team.performers.reduce((s, p) => s + p.metrics.mous, 0)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-bold">
+                      <span className="text-white/30">CALLS</span>
+                      <span className="text-[#9C27B0]">{team.performers.reduce((s, p) => s + p.metrics.coldCalls, 0)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-bold">
+                      <span className="text-white/30">FOLLOWS</span>
+                      <span className="text-[#00BCD4]">{team.performers.reduce((s, p) => s + p.metrics.followups, 0)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -480,10 +701,12 @@ function PerformerModal({
   team,
   onClose,
   teamColor,
+  isMST = false
 }: {
   team: MiniTeamData;
   onClose: () => void;
   teamColor: string;
+  isMST?: boolean;
 }) {
   const [first, second, third] = team.performers;
   const podiumOrder = [second, first, third].filter(Boolean);
@@ -491,14 +714,17 @@ function PerformerModal({
 
   return (
     <div className="relative max-h-[90vh] overflow-hidden flex flex-col">
-      <div className="sticky top-0 z-50 flex items-center justify-between gap-4 border-b border-white/10 bg-[#051C1E]/95 backdrop-blur-xl px-2 py-4 sm:py-5">
+      <div className="sticky top-0 z-50 flex items-center justify-between gap-4 border-b border-white/10 bg-[#192230]/95 backdrop-blur-xl px-2 py-4 sm:py-5">
         <div className="flex items-center gap-4 sm:gap-6">
-          <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-linear-to-br from-[#73FFFF]/20 to-transparent flex items-center justify-center text-xl shadow-lg border border-white/10">
+          <div 
+            className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center text-xl shadow-lg border border-white/10"
+            style={{ background: `linear-gradient(to bottom right, color-mix(in srgb, ${teamColor}, transparent 80%), transparent)` }}
+          >
             📊
           </div>
           <div>
-            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.4em] text-[#73FFFF]/40 mb-1">Squad Analytical Intel</p>
-            <h3 className="text-2xl sm:text-4xl font-black text-[#F7F7F8] tracking-tighter">{team.name} <span className="text-white/10">Performance Card</span></h3>
+            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.4em] mb-1" style={{ color: `color-mix(in srgb, ${teamColor}, white 40%)` }}>Squad Analytical Intel</p>
+            <h3 className="text-2xl sm:text-4xl font-black text-[#F7F7F8] tracking-tighter">{formatTeamName(team.name, isMST)} <span className="text-white/10">Performance Card</span></h3>
           </div>
         </div>
         <button
@@ -513,14 +739,14 @@ function PerformerModal({
         {/* Left Section: Podium Arena */}
         <div className="lg:col-span-7 flex flex-col">
           <div className="flex-1 rounded-[2rem] sm:rounded-[2.5rem] border border-white/5 bg-white/[0.02] p-4 sm:p-8 glass-premium flex flex-col justify-center min-h-[450px] sm:min-h-[600px]">
-            <p className="text-[11px] font-black uppercase tracking-[0.4em] text-[#73FFFF]/20 mb-8 sm:mb-12 text-center">Elite Performer Arena</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.4em] mb-8 sm:mb-12 text-center" style={{ color: `color-mix(in srgb, ${teamColor}, white 20%)` }}>Elite Performer Arena</p>
             <div className="flex items-end justify-center gap-3 sm:gap-10">
               {podiumOrder.map((performer, index) => {
                 const isFirst = performer === first;
                 const pRankNum = isFirst ? '1' : index === 0 ? '2' : '3';
                 const pHeight = isFirst ? 'h-40 sm:h-52' : index === 0 ? 'h-32 sm:h-36' : 'h-28 sm:h-32';
                 return (
-                  <div key={performer.name} className="flex flex-1 flex-col items-center group/podium max-w-[120px] sm:max-w-[160px]">
+                  <div key={performer.email} className="flex flex-1 flex-col items-center group/podium max-w-[120px] sm:max-w-[160px]">
                     <div className="mb-3 sm:mb-5 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl glass-premium text-sm sm:text-base font-black text-white shadow-2xl group-hover/podium:scale-110 transition-transform duration-500">
                       {performer.avatar}
                     </div>
@@ -561,7 +787,7 @@ function PerformerModal({
                 const rankNum = index + 1;
                 const rColor = rankNum <= 3 ? rankColors[rankNum as keyof typeof rankColors] : 'transparent';
                 return (
-                  <div key={performer.name} className="group/row flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.04] p-4 sm:p-5 hover:bg-white/[0.08] hover:border-white/10 transition-all duration-300 overflow-hidden relative shadow-lg shadow-black/10">
+                  <div key={performer.email} className="group/row flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.04] p-4 sm:p-5 hover:bg-white/[0.08] hover:border-white/10 transition-all duration-300 overflow-hidden relative shadow-lg shadow-black/10">
                     {rankNum <= 3 && <GlimmerOverlay />}
                     <div 
                       className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xs font-black transition-all shadow-2xl group-hover/row:scale-110"
@@ -585,7 +811,7 @@ function PerformerModal({
                       <p className="text-xl font-black text-white tabular-nums tracking-tighter">{performer.score}</p>
                       <div className="flex flex-col sm:flex-row gap-1 sm:gap-3 items-end sm:items-center mt-1">
                         <p className="text-[8px] font-black text-white/10 uppercase">XP TOTAL</p>
-                        <p className="text-[8px] font-black text-[var(--level-up)] uppercase">+{(performer.score * 0.1).toFixed(0)} Growth</p>
+                        {/* <p className="text-[8px] font-black text-[var(--level-up)] uppercase">+{(performer.score * 0.1).toFixed(0)} Growth</p> */}
                       </div>
                     </div>
                   </div>
@@ -606,7 +832,7 @@ function WrappedExperience({
 }: { 
   onClose: () => void;
   stats: {
-    topTeam: { name: string; points: number; growth: number };
+    topTeam: { name: string; points: number };
     globalMvp: { name: string; avatar: string; role: string };
     currentTeamName: string;
     teamAce: { name: string; avatar: string; score: number };
@@ -676,7 +902,7 @@ function WrappedExperience({
   const cards = [
     {
       id: "intro",
-      bg: "from-[#051B1D] via-[#004D40] to-[#051B1D]",
+      bg: "from-[#192230] via-[#3d474e] to-[#192230]",
       content: (
         <div className="flex flex-col items-center justify-center h-full text-center px-6">
           <motion.div
@@ -684,7 +910,7 @@ function WrappedExperience({
              animate={{ scale: 1, opacity: 1, rotate: 0 }}
              className="w-48 h-48 sm:w-64 sm:h-64 mb-12 relative flex items-center justify-center"
           >
-            <MascotAvatar type="laptop" size={256} />
+            <MascotAvatar type="laptop" size={256} glowColor={teamColor} />
           </motion.div>
           <motion.p 
             initial={{ y: 20, opacity: 0 }}
@@ -730,11 +956,11 @@ function WrappedExperience({
                 <p className="text-4xl font-black text-[#FFD700]">{stats.topTeam.points}</p>
                 <p className="text-[8px] font-bold uppercase tracking-widest text-white/30">POINTS</p>
               </div>
-              <div className="h-10 w-px bg-white/10" />
+              {/* <div className="h-10 w-px bg-white/10" />
               <div className="text-center">
                 <p className="text-4xl font-black text-[#00E676]">+{stats.topTeam.growth}%</p>
                 <p className="text-[8px] font-bold uppercase tracking-widest text-white/30">GROWTH</p>
-              </div>
+              </div> */}
             </div>
           </motion.div>
         </div>
@@ -884,53 +1110,248 @@ function WrappedExperience({
     </div>
   );
 }
+function ConstructionOverlay({ teamColor }: { teamColor: string }) {
+  return (
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-transparent overflow-hidden">
+      {/* Speed Lines Background */}
+      <div className="absolute inset-0 opacity-20">
+        {[...Array(15)].map((_, i) => (
+          <motion.div
+            key={i}
+            initial={{ x: "-100%" }}
+            animate={{ x: "250%" }}
+            transition={{ 
+              duration: 0.6, 
+              repeat: Infinity, 
+              delay: i * 0.1, 
+              ease: "linear" 
+            }}
+            className="absolute h-[1px] w-[400px] bg-linear-to-r from-transparent via-[var(--team-accent)]/20 to-transparent"
+            style={{ 
+              top: `${(i * 7)}%`, 
+              opacity: 0.1 + (i % 5) * 0.1,
+              '--team-accent': teamColor
+            } as any}
+          />
+        ))}
+      </div>
+
+      <div className="flex flex-col items-center">
+        <div className="relative mb-10">
+          <div className="absolute inset-0 flex items-center justify-center">
+            <img src="/logo.png" alt="Xcend Logo" className="w-16 h-16 object-contain opacity-50" />
+          </div>
+          <motion.div 
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="h-24 w-24 sm:h-32 sm:w-32 rounded-full border-t-2 border-r-2 border-white/20 border-b-2 border-l-2 border-transparent"
+            style={{ borderTopColor: teamColor }}
+          />
+        </div>
+        <h2 className="text-2xl sm:text-4xl font-black text-white italic tracking-tighter mb-2 uppercase text-center">
+          STILL IN <span style={{ color: teamColor }}>CONSTRUCTION</span>
+        </h2>
+        <p className="text-[10px] sm:text-xs font-black uppercase tracking-[0.5em] animate-pulse text-center" style={{ color: teamColor }}>
+          Buffering Performance Engine
+        </p>
+        <Link 
+          href="/"
+          className="mt-12 group flex items-center gap-2 px-8 py-3 rounded-full glass border border-white/10 hover:bg-white/5 transition-all text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white"
+        >
+          <span className="opacity-40 group-hover:-translate-x-1 transition-transform">←</span>
+          Exit to Home
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function UnlinkedState({ functionName }: { functionName: string }) {
+  return (
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-transparent overflow-hidden p-6 text-center">
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="relative mb-12"
+      >
+        <div className="h-48 w-48 sm:h-64 sm:w-64 rounded-full glass-premium flex items-center justify-center shadow-2xl border border-white/10">
+           <motion.div 
+             animate={{ rotate: [0, 10, -10, 0] }}
+             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+             className="text-7xl sm:text-9xl"
+           >
+             📡
+           </motion.div>
+        </div>
+        <motion.div 
+          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+          transition={{ duration: 3, repeat: Infinity }}
+          className="absolute -inset-4 rounded-full border-2 border-dashed"
+          style={{ borderColor: `${teamColor}44` }}
+        />
+      </motion.div>
+      <h2 className="text-3xl sm:text-5xl font-black text-white italic tracking-tighter mb-4 uppercase">
+        {functionName} <span style={{ color: teamColor }}>Pending</span>
+      </h2>
+      <p className="max-w-md text-sm sm:text-base font-medium text-white/50 leading-relaxed">
+        This performance dashboard has not been linked to a live Google Sheet source yet. 
+        Please contact the administrator to initialize the sync.
+      </p>
+      <Link 
+        href="/dashboard/b2b"
+        className="mt-12 px-8 py-4 rounded-full text-white font-black uppercase tracking-[0.2em] text-xs shadow-2xl hover:scale-105 transition-all"
+        style={{ background: `linear-gradient(to right, ${teamColor}, #192230)` }}
+      >
+        Back to B2B Dashboard
+      </Link>
+    </div>
+  );
+}
 
 export default function TeamDashboard() {
   const params = useParams();
   const teamParam = (params?.team as string)?.toLowerCase() || "b2b";
-  const teamData = teamDataMap[teamParam] || teamDataMap.b2b;
-  const [selectedMiniTeam, setSelectedMiniTeam] = useState<MiniTeamData | null>(null);
+  const teamColor = teamColorMap[teamParam] || "var(--igv-color)";
+  const [remoteTeamData, setRemoteTeamData] = useState<TeamData | null>(null);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [lastLiveFetchAt, setLastLiveFetchAt] = useState<Date | null>(null);
   const [hoveredBar, setHoveredBar] = useState<{ chart: number; bar: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showWrapped, setShowWrapped] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<"daily" | "weekly" | "bi-weekly" | "monthly" | "marathon">("marathon");
 
-  const leaderTeam = teamData.miniTeams[0];
-  const secondTeam = teamData.miniTeams[1];
+  useEffect(() => {
+    const controller = new AbortController();
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-  const leaderboardRows = teamData.miniTeams
-    .flatMap((mt) => mt.performers.map((p) => ({ ...p, team: mt.name })))
+    if (!baseUrl) {
+      setRemoteTeamData(null);
+      setDataError("Missing NEXT_PUBLIC_API_BASE_URL");
+      return () => controller.abort();
+    }
+
+    const loadTeamData = async () => {
+      try {
+        setDataError(null);
+        const response = await fetch(`${baseUrl}/api/dashboard/${teamParam}?period=${selectedPeriod}`, {
+          signal: controller.signal,
+          cache: "no-store"
+        });
+
+        if (!response.ok) {
+          throw new Error(`Backend request failed with status ${response.status}`);
+        }
+
+        const payload = (await response.json()) as DashboardApiResponse;
+        if (payload.ok && payload.data) {
+          setRemoteTeamData(payload.data);
+          setLastLiveFetchAt(new Date());
+          return;
+        }
+
+        throw new Error("Backend returned an invalid dashboard payload");
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        const message = error instanceof Error ? error.message : "Failed to load backend dashboard";
+        setDataError(message);
+        setRemoteTeamData(null);
+      }
+    };
+
+    void loadTeamData();
+
+    // Setup Supabase REALTIME listener
+    const channel = supabase
+      .channel(`dashboard_${teamParam}_${selectedPeriod}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to INSERT/UPDATE/DELETE
+          schema: 'public',
+          table: 'dashboard_cache',
+          filter: `id=eq.${teamParam}_${selectedPeriod}`,
+        },
+        (payload) => {
+          console.log("Realtime update received:", payload);
+          if (payload.new && (payload.new as any).payload) {
+            setRemoteTeamData((payload.new as any).payload as TeamData);
+            setLastLiveFetchAt(new Date());
+            setDataError(null);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Subscribed to realtime updates for ${teamParam}_${selectedPeriod}`);
+        }
+      });
+
+    // Setup Periodic Polling as a fallback to Realtime
+    const refreshInterval = 10 * 60 * 1000; // 10 Minutes
+    const refreshTimer = window.setInterval(() => {
+      console.log("⏰ 10-minute scheduled refresh triggered...");
+      void loadTeamData();
+    }, refreshInterval);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.clearInterval(refreshTimer);
+      controller.abort();
+    };
+  }, [teamParam, selectedPeriod]);
+
+  const teamData = remoteTeamData || teamDataMap[teamParam] || teamDataMap.igv_b2b || { name: "Team", displayName: "Team Dashboard", totalPoints: 0, totalGrowth: 0, completedActions: 0, weeklyGrowth: 0, miniTeams: [] };
+
+  const leaderTeam = teamData.miniTeams?.[0] || { name: "No Data", performers: [], points: 0 };
+  const secondTeam = teamData.miniTeams?.[1] || { name: "No Data", performers: [], points: 0 };
+
+  const leaderboardRows = (teamData.miniTeams || [])
+    .flatMap((mt) => (mt.performers || []).map((p) => ({ 
+      ...p, 
+      team: mt.slug || mt.name // 👈 Use slug if available
+    })))
     .sort((a, b) => b.score - a.score)
-    .map((p, i) => ({ ...p, rank: i + 1, growth: Math.floor(Math.random() * 50) + 10 }));
+    .map((p, i) => {
+      return { ...p, rank: i + 1 };
+    });
 
   const podiumVisualOrder = [leaderboardRows[1], leaderboardRows[0], leaderboardRows[2]].filter(Boolean);
 
+  const isIGV = teamParam === 'igv_b2b' || teamParam === 'igv_ir';
+  const isMST = teamParam === 'marcom' || teamParam === 'members' || teamParam === 'tls' || teamParam.startsWith('irm');
+
   // Stats for Wrapped
   const wrappedStats = {
-    topTeam: { name: "Marcom Stars", points: 28450, growth: 22 },
-    globalMvp: leaderboardRows[0],
-    teamAce: leaderTeam.performers[0],
+    topTeam: { name: "Marcom Stars", points: 28450 },
+    globalMvp: leaderboardRows[0] || null,
+    teamAce: leaderTeam.performers?.[0] || null,
     currentTeamName: teamData.name
   };
 
   const chartDefs = [
-    {
+    /* {
       title: "Growth Trend",
       subtitle: "Weekly Accumulation",
       type: "line",
       categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
       series: [
-        { name: leaderTeam.name, data: [40, 55, 48, 62, 70, 58, 80], color: "#FF1744" }, // Vibrant Red
-        { name: secondTeam.name, data: [20, 35, 45, 30, 50, 60, 68], color: "#00E5FF" }, // Cyan
+        { name: leaderTeam.name || "Team 1", data: [40, 55, 48, 62, 70, 58, 80], color: (teamParam === 'igv_b2b' || teamParam === 'igv_ir') ? '#5c6b77' : "#FF1744" }, 
+        { name: secondTeam.name || "Team 2", data: [20, 35, 45, 30, 50, 60, 68], color: teamColor }, // Dynamic Team Color
       ],
-    },
+    }, */
     {
-      title: "Member Activity Breakdown",
-      subtitle: "MOU | CALLS | FOLLOWS",
+      title: isMST ? "Total Member Points" : "Member Activity Breakdown",
+      subtitle: isMST ? "Points Accumulation" : "MOU | CALLS | FOLLOWS",
       type: "stacked-bar",
-      entries: leaderTeam.performers.slice(0, 7).map(p => ({
-        label: p.name,
-        values: [p.metrics.mous, p.metrics.coldCalls, p.metrics.followups]
-      }))
+      entries: (isMST ? leaderboardRows : (leaderTeam.performers || []))
+        .filter(p => !isMST || p.score > 0)
+        .slice(0, isMST ? 1000 : 10)
+        .map(p => ({
+          email: p.email,
+          label: p.name,
+          values: isMST ? [p.score] : [p.metrics?.mous || 0, p.metrics?.coldCalls || 0, p.metrics?.followups || 0]
+        }))
     }
   ];
 
@@ -954,15 +1375,30 @@ export default function TeamDashboard() {
     return path;
   };
 
-  const teamColor = teamColorMap[teamParam] || "var(--b2b-color)";
+  const isFinished = teamParam === 'members' || teamParam === 'tls';
+  const showUnlinked = !teamData && !remoteTeamData;
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-[#051B1D] via-[#003339] to-[#051B1D]">
+    <div 
+      className="min-h-screen bg-transparent relative"
+      style={{ 
+        backgroundImage: isMST
+          ? `linear-gradient(to bottom right, rgba(0, 0, 0, 0.9), rgba(15, 15, 15, 0.8), rgba(0, 0, 0, 0.9))`
+          : isIGV 
+          ? `linear-gradient(to bottom right, rgba(25, 34, 48, 0.7), rgba(44, 47, 56, 0.5), rgba(25, 34, 48, 0.7))`
+          : `linear-gradient(to bottom right, rgba(25, 34, 48, 0.7), color-mix(in srgb, ${teamColor}, black 90%), rgba(25, 34, 48, 0.7))` 
+      }}
+    >
+      {(isIGV || isMST) && <PawPrints />}
       <style>{glimmerAnimation}</style>
       
       <AnimatePresence mode="wait">
         {isLoading ? (
-          <CompetitiveLoader key="loader" onFinish={() => setIsLoading(false)} />
+          <CompetitiveLoader key="loader" dataReady={!!remoteTeamData} teamColor={teamColor} onFinish={() => setIsLoading(false)} />
+        ) : !isFinished ? (
+          <ConstructionOverlay key="construction" teamColor={teamColor} />
+        ) : showUnlinked ? (
+          <UnlinkedState key="unlinked" functionName={teamParam} />
         ) : (
           <motion.div
             key="dashboard"
@@ -970,15 +1406,10 @@ export default function TeamDashboard() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
           >
-        <nav className="sticky top-0 z-40 border-b border-white/5 bg-[#051C1E]/80 backdrop-blur-md">
+        <nav className={`sticky top-0 z-40 border-b border-white/5 ${isMST ? 'bg-black/80' : 'bg-[#192230]/80'} backdrop-blur-md`}>
           <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-3 sm:px-8 py-4 sm:py-6">
             <div className="flex items-center gap-3 sm:gap-6">
-              <div 
-                className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center text-xl sm:text-2xl glass-premium shadow-lg"
-                style={{ background: `linear-gradient(135deg, ${teamColor}44, transparent)` }}
-              >
-                🏆
-              </div>
+              <img src="/logo.png" alt="Xcend" className="h-30 w-30 sm:h-22 sm:w-22 object-contain drop-shadow-[0_0_15px_rgba(255,205,0,0.2)]" />
               <div>
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[#F7F7F8] capitalize">
                   {teamParam} <span className="opacity-40">Dashboard</span>
@@ -990,9 +1421,43 @@ export default function TeamDashboard() {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-4">
+              <SyncCountdown nextSyncTime={teamData.syncInfo?.nextSyncTime} teamColor={teamColor} />
+              
+              {remoteTeamData && !dataError ? (
+                <span className="inline-flex rounded-full border border-emerald-300/30 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-200">
+                  Live
+                  {lastLiveFetchAt ? ` ${lastLiveFetchAt.toLocaleTimeString()}` : ""}
+                </span>
+              ) : null}
+               {dataError ? (
+                <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-amber-200">
+                  Fallback mode
+                </span>
+              ) : null}
+
+              {/* Timeframe Filter */}
+              <div className="relative flex items-center gap-2">
+                <span className="hidden lg:inline text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Range</span>
+                <div className="relative group">
+                  <select
+                    value={selectedPeriod}
+                    onChange={(e) => setSelectedPeriod(e.target.value as any)}
+                    className="appearance-none bg-white/5 border rounded-full pl-4 pr-10 py-1.5 sm:py-2 text-[10px] sm:text-xs font-black uppercase tracking-widest outline-none hover:bg-white/10 transition-all cursor-pointer shadow-xl backdrop-blur-md"
+                    style={{ color: teamColor, borderColor: `${teamColor}44` }}
+                  >
+                    <option value="daily" className="bg-[#192230] text-white">Daily</option>
+                    <option value="weekly" className="bg-[#192230] text-white">Weekly</option>
+                    <option value="bi-weekly" className="bg-[#192230] text-white">Bi-Weekly</option>
+                    <option value="monthly" className="bg-[#192230] text-white">Monthly</option>
+                    <option value="marathon" className="bg-[#192230] text-white">Marathon</option>
+                  </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] opacity-60" style={{ color: teamColor }}>▼</div>
+                </div>
+              </div>
               <button
                 onClick={() => setShowWrapped(true)}
-                className="group flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-full bg-linear-to-r from-[#FF1744] to-[#73FFFF] text-white transition-all hover:scale-105 active:scale-95 shadow-lg"
+                className="group flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 text-[10px] sm:text-xs font-black uppercase tracking-widest rounded-full text-white transition-all hover:scale-105 active:scale-95 shadow-lg"
+                style={{ background: `linear-gradient(to right, ${isIGV ? '#2c2f38' : '#FF1744'}, ${teamColor})` }}
               >
                 <span className="group-hover:rotate-12 transition-transform">🏆</span>
                 <span>Recap</span>
@@ -1010,10 +1475,11 @@ export default function TeamDashboard() {
         </nav>
 
         <main className="mx-auto w-[94%] sm:w-[92%] space-y-8 sm:space-y-12 py-8 sm:py-16 lg:w-[80%]">
-          <header className="relative pt-12 pb-16 sm:py-20 text-center rounded-[2.5rem] sm:rounded-[4rem] glass-premium border border-white/5 px-6 sm:px-12 flex flex-col items-center justify-center shadow-2xl">
+          <header className={`relative pt-12 pb-16 sm:py-20 text-center rounded-[2.5rem] sm:rounded-[4rem] ${isMST ? 'bg-black/60 border-white/10' : 'glass-premium border-white/5'} px-6 sm:px-12 flex flex-col items-center justify-center shadow-2xl`}>
             {/* Background Gradient */}
             <div className="absolute inset-0 rounded-[2.5rem] sm:rounded-[4rem] overflow-hidden pointer-events-none">
               <div className="absolute inset-0 opacity-15" style={{ background: `radial-gradient(circle at 50% 50%, ${teamColor}, transparent 70%)` }} />
+              {!isMST && <div className="absolute inset-0 opacity-[0.05]" style={{ background: `radial-gradient(circle at 20% 20%, #ffcd00, transparent 40%)` }} />}
             </div>
             
             <div className="relative z-10 text-center flex-1 w-full max-w-4xl mx-auto">
@@ -1025,10 +1491,10 @@ export default function TeamDashboard() {
                   <span className="text-3xl md:text-4xl lg:text-5xl font-black text-white">{teamData.totalPoints.toLocaleString()}</span>
                   <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.25em] text-white/40 mt-2">Total Team XP</span>
                 </div>
-                <div className="flex flex-col items-center text-center">
+                {/* <div className="flex flex-col items-center text-center">
                   <span className="text-3xl md:text-4xl lg:text-5xl font-black text-[var(--level-up)]">+{teamData.weeklyGrowth}%</span>
                   <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.25em] text-white/40 mt-2">Weekly Surge</span>
-                </div>
+                </div> */}
                 <div className="flex flex-col items-center text-center">
                   <span className="text-3xl md:text-4xl lg:text-5xl font-black text-[var(--xp-gold)]">{teamData.completedActions}</span>
                   <span className="text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.25em] text-white/40 mt-2">Milestones Hit</span>
@@ -1065,12 +1531,13 @@ export default function TeamDashboard() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 1 }}
-            className="relative rounded-[3rem] border border-white/5 bg-white/[0.02] p-8 sm:p-12 glass-premium shadow-2xl shadow-black/50 overflow-hidden"
+            className={`relative rounded-[3rem] border border-white/5 ${isMST ? 'bg-black/40' : 'bg-white/[0.02] glass-premium'} p-8 sm:p-12 shadow-2xl shadow-black/50 overflow-hidden`}
           >
             <div 
-              className="absolute inset-0 opacity-10 pointer-events-none"
-              style={{ background: `radial-gradient(circle at 100% 0%, ${teamColor}, transparent 80%)` }}
+              className="absolute inset-0 opacity-15 pointer-events-none"
+              style={{ background: `radial-gradient(circle at 50% 50%, ${teamColor}, transparent 70%)` }}
             />
+            {!isMST && <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ background: `radial-gradient(circle at 80% 80%, #ffcd00, transparent 50%)` }} />}
             
             <div className="relative z-10 mb-16 flex flex-col items-center">
               <h3 className="text-3xl font-black text-[#F7F7F8] tracking-widest uppercase">The Podium</h3>
@@ -1081,7 +1548,7 @@ export default function TeamDashboard() {
                 const isChampion = index === 1;
                 const podHeight = index === 0 ? '140 sm:180' : index === 1 ? '200 sm:260' : '100 sm:140';
                 return (
-                  <div key={performer.name} className={`group flex flex-col items-center ${isChampion ? "w-[40%] sm:w-[38%]" : "w-[28%] sm:w-[31%]"}`}>
+                  <div key={performer.email} className={`group flex flex-col items-center ${isChampion ? "w-[40%] sm:w-[38%]" : "w-[28%] sm:w-[31%]"}`}>
                     <div className="mb-4 sm:mb-8 text-center w-full">
                       <p className={`truncate px-1 font-black tracking-tight ${isChampion ? "text-base sm:text-xl text-white" : "text-[10px] sm:text-sm text-white/40"}`}>{performer.name}</p>
                       <div className="mt-2 sm:mt-3 inline-flex items-center gap-1 sm:gap-2 rounded-full glass border border-white/10 px-2 sm:px-4 py-1 sm:py-1.5 shadow-xl">
@@ -1106,8 +1573,8 @@ export default function TeamDashboard() {
                     >
                       <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-2xl" />
                       <div 
-                        className="absolute -top-6 left-1/2 -translate-x-1/2 h-12 w-12 rounded-xl border border-white/30 bg-[#003339] flex items-center justify-center text-xl font-black shadow-2xl"
-                        style={{ color: isChampion ? '#FFD700' : index === 0 ? '#E0E0E0' : '#CD7F32' }}
+                        className="absolute -top-6 left-1/2 -translate-x-1/2 h-12 w-12 rounded-xl border border-white/30 flex items-center justify-center text-xl font-black shadow-2xl"
+                        style={{ backgroundColor: `color-mix(in srgb, ${teamColor}, black ${isMST ? '85%' : teamParam === 'b2b' ? '60%' : '70%'})`, color: isChampion ? '#FFD700' : index === 0 ? '#E0E0E0' : '#CD7F32' }}
                       >
                         {index === 0 ? "2" : index === 1 ? "1" : "3"}
                       </div>
@@ -1128,44 +1595,53 @@ export default function TeamDashboard() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.1 }}
           >
-            <div className="rounded-3xl border border-[#00666B]/35 bg-[#003339]/65 shadow-xl shadow-black/30 overflow-hidden">
-              <div className="overflow-x-auto custom-scrollbar">
+            <div 
+              className={`relative rounded-[2.5rem] sm:rounded-[4.5rem] border border-white/5 ${isMST ? 'bg-black/95' : 'glass-premium'} shadow-xl shadow-black/30 overflow-hidden px-2 sm:px-6 py-6 sm:py-10`}
+            >
+              <div 
+                className="absolute inset-0 opacity-15 pointer-events-none"
+                style={{ background: `radial-gradient(circle at 50% 50%, ${teamColor}, transparent 70%)` }}
+              />
+              <div className="overflow-x-auto custom-scrollbar relative z-10">
                 <div className="min-w-[750px]">
                   {/* Header */}
-                  <div className="grid grid-cols-12 gap-2 sm:gap-4 bg-[#003339]/95 px-4 sm:px-6 py-4 text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.16em] text-[#F7F7F8]/65">
+                  <div 
+                    className="grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-6 py-4 text-[9px] sm:text-[11px] font-bold uppercase tracking-[0.16em] text-[#F7F7F8]/65 rounded-2xl mb-4 shadow-lg"
+                    style={{ backgroundColor: isMST ? 'rgba(255,255,255,0.05)' : `color-mix(in srgb, ${teamColor}, black 60%)` }}
+                  >
                     <div className="col-span-4">Performer</div>
                     <div className="col-span-3">Team</div>
-                    <div className="col-span-2 text-right">Points</div>
-                    <div className="col-span-2 text-right">Growth</div>
+                    <div className="col-span-4 text-right">Points</div>
                     <div className="col-span-1 text-right">Rank</div>
                   </div>
                   
                   {/* Rows */}
-                  <div className="divide-y divide-[#00666B]/35">
+                  <div className="divide-y" style={{ borderTopColor: `color-mix(in srgb, ${teamColor}, transparent 80%)` }}>
                     {leaderboardRows.map((row) => (
-                      <div key={`${row.team}-${row.name}`} className="group/row relative grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-6 py-4 items-center transition-colors hover:bg-[#39A8AD]/10 overflow-hidden">
+                      <div 
+                        key={row.email} // 👈 Use unique email as key
+                        className="group/row relative grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-6 py-4 items-center transition-colors overflow-hidden hover:bg-[var(--hover-bg)]"
+                        style={{ '--hover-bg': `color-mix(in srgb, ${teamColor}, transparent 95%)` } as any}
+                      >
                         {row.rank <= 3 && <GlimmerOverlay />}
                         
                         <div className="col-span-4 relative z-10">
                           <p className="font-semibold text-sm sm:text-base text-[#F7F7F8] truncate">{row.name}</p>
-                          <p className="text-[10px] sm:text-xs text-[#73FFFF]/45 truncate">{row.role}</p>
+                          <p className="text-[10px] sm:text-xs text-white/45 truncate" style={{ color: `color-mix(in srgb, ${teamColor}, white 60%)` }}>{row.role}</p>
                         </div>
                         <div className="col-span-3 relative z-10 text-sm font-medium text-[#F7F7F8]/80 truncate">
-                          {row.team}
+                          {formatTeamName(row.team, isMST)}
                         </div>
-                        <div className="col-span-2 relative z-10 text-right text-xs sm:text-sm font-bold tabular-nums text-[#F7F7F8]">
+                        <div className="col-span-4 relative z-10 text-right text-xs sm:text-sm font-bold tabular-nums text-[#F7F7F8]">
                           {row.score.toLocaleString()}
-                        </div>
-                        <div className="col-span-2 relative z-10 text-right text-sm font-semibold text-[#73FFFF]/85">
-                          +{row.growth}
                         </div>
                         <div className="col-span-1 relative z-10 flex justify-end">
                           <span 
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-bold transition-all"
                             style={{ 
-                              borderColor: row.rank <= 3 ? `${rankColors[row.rank as keyof typeof rankColors]}66` : 'rgba(0,102,107,0.45)',
-                              backgroundColor: row.rank <= 1 ? `${rankColors[1]}33` : row.rank === 2 ? `${rankColors[2]}33` : row.rank === 3 ? `${rankColors[3]}33` : 'rgba(0,102,107,0.8)',
-                              color: row.rank <= 3 ? rankColors[row.rank as keyof typeof rankColors] : 'rgba(247,247,248,0.65)'
+                              borderColor: row.rank <= 3 ? `${rankColors[row.rank as keyof typeof rankColors]}66` : `color-mix(in srgb, ${teamColor}, black 70%)`,
+                              backgroundColor: row.rank <= 1 ? `${rankColors[1]}33` : row.rank === 2 ? `${rankColors[2]}33` : row.rank === 3 ? `${rankColors[3]}33` : `color-mix(in srgb, ${teamColor}, black 80%)`,
+                              color: row.rank <= 3 ? rankColors[row.rank as keyof typeof rankColors] : `color-mix(in srgb, ${teamColor}, white 60%)`
                             }}
                           >
                             {row.rank}
@@ -1185,11 +1661,29 @@ export default function TeamDashboard() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <div className="rounded-2xl sm:rounded-3xl border border-[#00666B]/35 bg-linear-to-br from-[#003339]/75 via-[#051B1D] to-[#003339]/75 p-4 sm:p-5">
-              <h4 className="text-base sm:text-lg font-bold text-[#F7F7F8]">Squad Matchups</h4>
-              <div className="mt-4 sm:mt-6 grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2">
-                <MiniTeamCard team={leaderTeam} isLeader={true} onSelect={() => setSelectedMiniTeam(leaderTeam)} teamColor={teamColor} />
-                <MiniTeamCard team={secondTeam} isLeader={false} onSelect={() => setSelectedMiniTeam(secondTeam)} teamColor={teamColor} />
+            <div 
+              className={`relative rounded-[2.5rem] sm:rounded-[3.5rem] border border-white/5 ${isMST ? 'bg-black/90' : 'glass-premium'} p-6 sm:p-10 shadow-2xl overflow-hidden`}
+            >
+              <div 
+                className="absolute inset-0 opacity-15 pointer-events-none"
+                style={{ background: `radial-gradient(circle at 50% 50%, ${teamColor}, transparent 70%)` }}
+              />
+              <div className="relative z-10">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
+                  <h4 className="text-xl sm:text-2xl font-black text-[#F7F7F8] tracking-widest uppercase italic">Squad Performance Matchups</h4>
+                  <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.3em]">Total Active Squads: {teamData.miniTeams?.length || 0}</p>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {teamData.miniTeams?.map((team, index) => (
+                    <MiniTeamCard 
+                      key={team.slug || team.name}
+                      team={team} 
+                      isLeader={index === 0} 
+                      teamColor={teamColor} 
+                      isMST={isMST}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </motion.section>
@@ -1204,60 +1698,80 @@ export default function TeamDashboard() {
               {/* Left Column: Member Activity Breakdown */}
               <div className="lg:col-span-7">
                 {chartDefs.filter(c => c.type === "stacked-bar").map((chart) => (
-                  <div key={chart.title} className="rounded-2xl sm:rounded-3xl border border-[#00666B]/35 bg-[#003339]/65 p-6 sm:p-8 shadow-xl shadow-black/20 h-full">
-                    <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.22em] text-[#73FFFF]/45">{chart.subtitle}</p>
-                    <h4 className="mt-1 text-base sm:text-lg font-bold text-[#F7F7F8]">{chart.title}</h4>
-                    <div className="mt-8 space-y-8">
-                      {chart.entries?.map((entry: { label: string; values: number[] }) => {
-                        const total = entry.values.reduce((a: number, b: number) => a + b, 0);
-                        const maxRowTotal = Math.max(...(chart.entries || []).map((e: { values: number[] }) => e.values.reduce((a: number, b: number) => a + b, 0)));
-                        return (
-                          <div key={entry.label} className="group/row">
-                            <div className="mb-3 flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="h-2 w-2 rounded-full bg-[#00666B]" />
-                                <p className="text-sm font-bold text-[#F7F7F8]">{entry.label}</p>
+                  <div 
+                    key={chart.title} 
+                    className={`relative rounded-[2.5rem] sm:rounded-[3rem] border border-white/5 ${isMST ? 'bg-black/90' : 'glass-premium shadow-xl shadow-black/20'} p-6 sm:p-8 h-full overflow-hidden`}
+                  >
+                    <div 
+                      className="absolute inset-0 opacity-10 pointer-events-none"
+                      style={{ background: `radial-gradient(circle at 100% 0%, ${teamColor}, transparent 80%)` }}
+                    />
+                    <div className="relative z-10">
+                      <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.22em]" style={{ color: `color-mix(in srgb, ${teamColor}, white 40%)` }}>{chart.subtitle}</p>
+                      <h4 className="mt-1 text-base sm:text-lg font-bold text-[#F7F7F8]">{chart.title}</h4>
+                      <div className="mt-8 space-y-8">
+                        {chart.entries?.map((entry: { label: string; values: number[]; email: string }) => {
+                          const total = entry.values.reduce((a: number, b: number) => a + b, 0);
+                          const maxRowTotal = Math.max(...(chart.entries || []).map((e: { values: number[] }) => e.values.reduce((a: number, b: number) => a + b, 0)));
+                          return (
+                            <div key={entry.email || entry.label} className="group/row">
+                              <div className="mb-3 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: teamColor }} />
+                                  <p className="text-sm font-bold text-[#F7F7F8]">{entry.label}</p>
+                                </div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: `color-mix(in srgb, ${teamColor}, white 40%)` }}>{total} total</p>
                               </div>
-                              <p className="text-[10px] font-bold text-[#73FFFF]/45 uppercase tracking-widest">{total} total</p>
+                              <div className="relative h-10 w-full">
+                                <motion.div
+                                  initial={{ width: 0, opacity: 0 }}
+                                  whileInView={{ width: `${(total / (maxRowTotal || 1)) * 100}%`, opacity: 1 }}
+                                  viewport={{ once: true }}
+                                  transition={{ duration: 1, ease: "easeOut" }}
+                                  className="flex h-full overflow-hidden rounded-xl"
+                                  style={{ backgroundColor: `color-mix(in srgb, ${teamColor}, transparent 80%)`, border: `1px solid color-mix(in srgb, ${teamColor}, transparent 70%)` }}
+                                >
+                                  {entry.values.map((val: number, valIdx: number) => {
+                                    const pct = (val / total) * 100;
+                                    const colors = isMST ? [stackedChartSegmentColors[2], ...stackedChartSegmentColors] : stackedChartSegmentColors;
+                                    if (val === 0) return null;
+                                    return (
+                                      <motion.div
+                                        key={valIdx}
+                                        initial={{ opacity: 0, scaleX: 0 }}
+                                        whileInView={{ opacity: 1, scaleX: 1 }}
+                                        viewport={{ once: true }}
+                                        transition={{ duration: 0.5, delay: 0.8 + valIdx * 0.15 }}
+                                        className={`relative flex items-center justify-center transition-all duration-700 hover:brightness-125 origin-left ${colors[valIdx]}`}
+                                        style={{ width: `${pct}%` }}
+                                      >
+                                        {val > 2 && <span className="text-[10px] font-black text-[#192230] drop-shadow-sm">{val}</span>}
+                                      </motion.div>
+                                    );
+                                  })}
+                                </motion.div>
+                              </div>
                             </div>
-                            <div className="relative h-10 w-full">
-                              <motion.div
-                                initial={{ width: 0, opacity: 0 }}
-                                whileInView={{ width: `${(total / (maxRowTotal || 1)) * 100}%`, opacity: 1 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 1, ease: "easeOut" }}
-                                className="flex h-full overflow-hidden rounded-xl bg-[#00666B]/40 border border-[#00666B]/30"
-                              >
-                                {entry.values.map((val: number, valIdx: number) => {
-                                  const pct = (val / total) * 100;
-                                  const colors = stackedChartSegmentColors;
-                                  if (val === 0) return null;
-                                  return (
-                                    <motion.div
-                                      key={valIdx}
-                                      initial={{ opacity: 0, scaleX: 0 }}
-                                      whileInView={{ opacity: 1, scaleX: 1 }}
-                                      viewport={{ once: true }}
-                                      transition={{ duration: 0.5, delay: 0.8 + valIdx * 0.15 }}
-                                      className={`relative flex items-center justify-center transition-all duration-700 hover:brightness-125 origin-left ${colors[valIdx]}`}
-                                      style={{ width: `${pct}%` }}
-                                    >
-                                      {val > 2 && <span className="text-[10px] font-black text-[#051B1D] drop-shadow-sm">{val}</span>}
-                                    </motion.div>
-                                  );
-                                })}
-                              </motion.div>
+                          );
+                        })}
+                      </div>
+                      <div 
+                        className={`mt-10 flex items-center justify-center gap-8 rounded-2xl border py-4 ${isMST ? 'bg-black/80' : 'glass-premium'}`}
+                        style={{ borderColor: `color-mix(in srgb, ${teamColor}, transparent 80%)` }}
+                      >
+                        {isMST ? (
+                          <div className="flex items-center gap-3">
+                            <span className={`h-3 w-3 rounded-full ${stackedLegendDots[2]}`} />
+                            <span className="text-[10px] font-bold text-[#F7F7F8]/65 uppercase tracking-widest">Total Points</span>
+                          </div>
+                        ) : (
+                          ["MOUs", "Calls", "Follows"].map((l, i) => (
+                            <div key={l} className="flex items-center gap-3">
+                              <span className={`h-3 w-3 rounded-full ${stackedLegendDots[i]}`} />
+                              <span className="text-[10px] font-bold text-[#F7F7F8]/65 uppercase tracking-widest">{l}</span>
                             </div>
-                          </div>
-                        );
-                      })}
-                      <div className="mt-10 flex items-center justify-center gap-8 rounded-2xl border border-[#00666B]/35 bg-[#003339]/40 py-4">
-                        {["MOUs", "Calls", "Follows"].map((l, i) => (
-                          <div key={l} className="flex items-center gap-3">
-                            <span className={`h-3 w-3 rounded-full ${stackedLegendDots[i]}`} />
-                            <span className="text-[10px] font-bold text-[#F7F7F8]/65 uppercase tracking-widest">{l}</span>
-                          </div>
-                        ))}
+                          ))
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1266,117 +1780,52 @@ export default function TeamDashboard() {
 
               {/* Right Column: Growth Trend + Quick Insights */}
               <div className="lg:col-span-5 space-y-8">
-                {chartDefs.filter(c => c.type === "line").map((chart) => (
-                  <div key={chart.title} className="rounded-2xl sm:rounded-3xl border border-[#00666B]/35 bg-[#003339]/65 p-6 sm:p-8 shadow-xl shadow-black/20">
-                    <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.22em] text-[#73FFFF]/45">{chart.subtitle}</p>
-                    <h4 className="mt-1 text-base sm:text-lg font-bold text-[#F7F7F8]">{chart.title}</h4>
-                    <div className="mt-8 w-full pt-4">
-                      <div className="relative h-60 w-full">
-                        <svg className="h-full w-full overflow-visible" viewBox="0 0 400 200" preserveAspectRatio="none">
-                          {chart.series?.map((s, sIdx) => {
-                            const maxS = Math.max(...chart.series!.flatMap(se => se.data));
-                            const path = getSmoothPath(s.data, 400, 200, maxS);
-                            return (
-                              <g key={sIdx}>
-                                <defs>
-                                  <linearGradient id={`grad-smooth-${sIdx}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor={s.color} stopOpacity="0.2" />
-                                    <stop offset="100%" stopColor={s.color} stopOpacity="0" />
-                                  </linearGradient>
-                                </defs>
-                                <motion.path
-                                  initial={{ pathLength: 0, opacity: 0 }}
-                                  whileInView={{ pathLength: 1, opacity: 1 }}
-                                  viewport={{ once: true }}
-                                  transition={{ duration: 2, ease: "easeInOut" }}
-                                  d={path}
-                                  fill="none"
-                                  stroke={s.color}
-                                  strokeWidth="3"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                                <motion.path
-                                  initial={{ opacity: 0 }}
-                                  whileInView={{ opacity: 1 }}
-                                  viewport={{ once: true }}
-                                  transition={{ duration: 1, delay: 1.5 }}
-                                  d={`${path} L 400 200 L 0 200 Z`}
-                                  fill={`url(#grad-smooth-${sIdx})`}
-                                />
-                                {s.data.map((d, i) => (
-                                  <motion.circle
-                                    key={i}
-                                    initial={{ scale: 0, opacity: 0 }}
-                                    whileInView={{ scale: 1, opacity: 1 }}
-                                    viewport={{ once: true }}
-                                    transition={{ duration: 0.4, delay: 1.8 + (i * 0.05) }}
-                                    cx={(i / (s.data.length - 1)) * 400}
-                                    cy={200 - (d / maxS) * 200}
-                                    r="4"
-                                    fill={s.color}
-                                  />
-                                ))}
-                              </g>
-                            );
-                          })}
-                        </svg>
-                      </div>
-                      <div className="mt-8 flex justify-between px-2">
-                        {chart.categories?.map(c => <span key={c} className="text-[9px] font-bold uppercase tracking-tighter text-[#73FFFF]/45">{c}</span>)}
-                      </div>
-                      <div className="mt-6 flex flex-wrap gap-6">
-                        {chart.series?.map(s => (
-                          <div key={s.name} className="flex items-center gap-3">
-                            <span className="h-0.5 w-6" style={{ backgroundColor: s.color }} />
-                            <span className="text-[10px] text-[#F7F7F8]/65 font-bold uppercase tracking-wider">{s.name}</span>
+                {/* {chartDefs.filter(c => c.type === "line").map((chart) => (
+                  <div 
+                    key={chart.title} 
+                    className={`relative rounded-[2.5rem] sm:rounded-[3rem] border border-white/5 ${isMST ? 'bg-black/90' : 'glass-premium shadow-xl shadow-black/20'} p-6 sm:p-8 h-full overflow-hidden`}
+                  >
+                    ...
+                  </div>
+                ))} */}
+
+                {!isMST && (
+                  <div 
+                    className={`relative rounded-[2.5rem] sm:rounded-[3.5rem] border border-white/5 ${isMST ? 'bg-black/90' : 'glass-premium shadow-xl shadow-black/40'} p-6 sm:p-10 overflow-hidden`}
+                  >
+                    <div 
+                      className="absolute inset-0 opacity-15 pointer-events-none"
+                      style={{ background: `radial-gradient(circle at 50% 50%, ${teamColor}, transparent 70%)` }}
+                    />
+                    {!isMST && <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{ background: `radial-gradient(circle at 0% 100%, #ffcd00, transparent 40%)` }} />}
+                    <div className="relative z-10">
+                      <h4 className="text-base sm:text-lg font-bold text-[#F7F7F8]">Quick Insights</h4>
+                      <div className="mt-6 space-y-4">
+                        {quickInsights.map((insight, index) => (
+                          <div 
+                            key={index} 
+                            className="rounded-2xl border p-4 sm:p-5 transition-colors hover:bg-[var(--hover-bg)]"
+                            style={{ 
+                              borderColor: `color-mix(in srgb, ${teamColor}, transparent 80%)`, 
+                              backgroundColor: `color-mix(in srgb, ${teamColor}, black 80%)`,
+                              '--hover-bg': `color-mix(in srgb, ${teamColor}, black 70%)`
+                            } as any}
+                          >
+                            <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: `color-mix(in srgb, ${teamColor}, white 40%)` }}>{insight.label}</p>
+                            <p className="mt-1 text-base sm:text-lg font-bold text-[#F7F7F8]">{insight.value}</p>
+                            {/* <p className="mt-1 text-[10px] sm:text-xs font-semibold" style={{ color: teamColor }}>{insight.growth}</p> */}
                           </div>
                         ))}
                       </div>
                     </div>
                   </div>
-                ))}
-
-                <div className="rounded-2xl sm:rounded-3xl border border-[#00666B]/35 bg-linear-to-br from-[#003339]/75 via-[#051B1D] to-[#003339]/75 p-6 sm:p-8 shadow-xl">
-                  <h4 className="text-base sm:text-lg font-bold text-[#F7F7F8]">Quick Insights</h4>
-                  <div className="mt-6 space-y-4">
-                    {quickInsights.map((insight, index) => (
-                      <div key={index} className="rounded-2xl border border-[#00666B]/35 bg-[#003339]/80 p-4 sm:p-5 hover:bg-[#003339]/100 transition-colors">
-                        <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] text-[#73FFFF]/45">{insight.label}</p>
-                        <p className="mt-1 text-base sm:text-lg font-bold text-[#F7F7F8]">{insight.value}</p>
-                        <p className="mt-1 text-[10px] sm:text-xs font-semibold text-[#73FFFF]">{insight.growth}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </motion.section>
         </main>
       </motion.div>
       )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {selectedMiniTeam && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-[#051B1D]/80 px-4 backdrop-blur-sm"
-            onClick={() => setSelectedMiniTeam(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="w-full max-w-6xl overflow-hidden rounded-[2.5rem] sm:rounded-[3.5rem] border border-[#00666B]/45 bg-linear-to-br from-[#003339] via-[#051B1D] to-[#003339] p-6 sm:p-10 shadow-2xl shadow-black/60 mx-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <PerformerModal team={selectedMiniTeam} onClose={() => setSelectedMiniTeam(null)} teamColor={teamColor} />
-            </motion.div>
-          </motion.div>
-        )}
       </AnimatePresence>
 
       <AnimatePresence>
