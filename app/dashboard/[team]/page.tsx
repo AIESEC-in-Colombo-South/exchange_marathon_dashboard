@@ -1166,7 +1166,7 @@ function ConstructionOverlay({ teamColor }: { teamColor: string }) {
   );
 }
 
-function UnlinkedState({ functionName }: { functionName: string }) {
+function UnlinkedState({ functionName, teamColor }: { functionName: string; teamColor: string }) {
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-transparent overflow-hidden p-6 text-center">
       <motion.div
@@ -1398,7 +1398,7 @@ export default function TeamDashboard() {
         ) : !isFinished ? (
           <ConstructionOverlay key="construction" teamColor={teamColor} />
         ) : showUnlinked ? (
-          <UnlinkedState key="unlinked" functionName={teamParam} />
+          <UnlinkedState key="unlinked" functionName={teamParam} teamColor={teamColor} />
         ) : (
           <motion.div
             key="dashboard"
